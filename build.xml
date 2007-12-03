@@ -1,0 +1,344 @@
+<!-- $Id$ -->
+<project name="jelmilter" default="dist"  basedir=".">
+	
+	<property name="codebase"   value="de/ovgu/cs/jelmilter"/>
+	<property name="product.name" value="JEL Mail Filter"/>
+	<property name="year.start" value="2007"/>
+	
+	<!-- version -->
+	<property name="version.major" value="1"/>
+	<!-- new features, but backward compatible -->
+	<property name="version.minor" value="0"/>
+	<!-- developer built or maintainance relase or bug fix number -->
+	<property name="version.tiny"  value="0"/>
+	<!-- status: alpha | beta | gamma | final | "" ; "" means final -->
+	<property name="version.note"  value=""/>
+
+	<property name="product.version"
+		value="${version.major}.${version.minor}.${version.tiny}${version.note}" />
+
+	<!-- compiler settings -->
+	<property name="debug" value="on" />
+	<property name="debuglevel" value="source,lines,vars" />
+	<property name="optimze" value="on" />
+	<property name="deprecation" value="on" />
+	<property name="compile.encoding" value="ISO8859_15" />
+	<property name="listfiles" value="no" />
+
+	<property file="${user.home}/config/ant/${ant.project.name}.properties" />
+	<property file="${user.home}/config/ant/global.properties" />
+	<property file="/local/apps/javax/global.properties" />
+
+	<property name="src.dir" location="src" />
+	<property name="test.dir" location="test" />
+	<property name="lib.dir" location="lib" />
+	<property name="version.files" value="${codebase}/**/Version.java"/>
+
+	<!-- vendor specific stuff -->
+	<property name="vendor.name" value="Jens Elkner" />
+	<property name="vendor.address"
+		value="Jens Elkner, FIN-IWS, Universitaetsplatz 2, 39106 Magdeburg, Sachsen-Anhalt, Germany" />
+	<property name="vendor.email" value="jel+milter@iws.cs.uni-magdeburg.de" />
+	<property name="vendor.url" value="http://iws.cs.uni-magdeburg.de/~elkner/" />
+	<property name="license.file"
+		value="${src.dir}/${codebase}/res/license.txt" />
+
+	<!-- manifest specific stuff -->
+	<property name="mf.spec.version" value="${product.version}"/>
+	<property name="mf.impl.title" value="${product.name}"/>
+	<property name="mf.extension.name" value="${codebase.path}"/>
+	<property name="mf.impl.vendor.id" value="de.ovgu.cs"/>
+	<property name="mf.impl.vendor" value="${vendor.name}" />
+
+	<!--                     ##################
+	here the user is able to overwrite defaults, since first name read is activ 
+                             ##################
+    -->
+	<property file="${user.home}/config/ant/${ant.project.name}.properties" />
+	<property file="${user.home}/config/ant/global.properties" />
+	<property file="/local/apps/javax/global.properties" />
+
+	<!-- where to build the product and distribution -->
+	<property name="dist.dir" location="dist" />
+	<property name="build.dir" location="build" />
+	<property name="build.class.dir" location="${build.dir}/classes" />
+	<property name="build.docs.dir" location="${build.dir}/docs" />
+	<!-- where to store produced libs, which will be part of the distribution -->
+	<property name="build.lib.dir" location="${build.dir}/lib" />
+	<!-- pathes for generated stuf -->
+	<property name="build.src.dir" location="${build.dir}/src" />
+
+	<property name="taglets.jar" location="/local/apps/javax/taglets.jar" />
+
+	<property name="jdkAPI" value="http://java.sun.com/javase/6/docs/api/" />
+	<property name="commons-httpclientAPI" 
+		value="http://commons.apache.org/httpclient/apidocs/" />
+
+
+	<!-- ############################################################ -->
+	<!--                          CLASSPATHES                         -->
+	<!-- ############################################################ -->
+	
+	<!-- helper to get all libs in a certain directory -->
+	<patternset id="libs">
+		<include name="*.jar" />
+	</patternset>
+	
+	<path id="classpath.extensions">
+		<fileset dir="${lib.dir}">
+			<patternset refid="libs"/>
+		</fileset>
+		<fileset dir="${java.home}/../lib" includes="jconsole.jar"/>
+	</path>
+	<path id="junit.classpath">
+		<fileset dir="${lib.dir}">
+			<patternset refid="libs"/>
+		</fileset>
+		<fileset dir="${junit.dir}" includes="junit.jar"/>
+	</path>
+
+
+	<!-- ############################################################ -->
+	<!--                             INIT                             -->
+	<!-- ############################################################ -->
+	<target name="env">
+		<echo message="java.home          = ${java.home}"/>
+		<echo message="user.home          = ${user.home}"/>
+		<echo message="debug              = ${debug}"/>
+		<echo message="debuglevel         = ${debuglevel}"/>
+	</target>
+	<target name="init" depends="env">
+		<tstamp />
+		<mkdir dir="${build.src.dir}" />
+		<mkdir dir="${build.lib.dir}" />
+		<mkdir dir="${build.class.dir}/${codebase}" />
+		<mkdir dir="${build.docs.dir}" />
+		<mkdir dir="${dist.dir}" />
+		<tstamp>
+			<format property="year.end" pattern="yyyy" />
+		</tstamp>
+		<exec executable="svnversion" output="${build.dir}/buildnumber">
+			<arg line="-n ${basedir}"/>
+			<redirector>
+				<outputfilterchain>
+					<replaceregex pattern="^.*:" replace=""/>
+					<replaceregex pattern="^" replace="build.number="/>
+				</outputfilterchain>
+			</redirector>
+		</exec>
+		<property file="${build.dir}/buildnumber"/>
+		<filterset id="main">
+			<filter token="ant.project.name" value="${ant.project.name}" />
+			<filter token="product.name" value="${product.name}" />
+			<filter token="product.version" value="${product.version}" />
+			<filter token="main.class" value="${main.class}" />
+			<filter token="main.class.gui" value="${main.class.gui}" />
+			<filter token="year.start" value="${year.start}" />
+			<filter token="year.end" value="${year.end}" />
+			<filter token="vendor.name" value="${vendor.name}" />
+			<filter token="vendor.url" value="${vendor.url}" />
+			<filter token="vendor.address" value="${vendor.address}" />
+			<filter token="vendor.email" value="${vendor.email}" />
+			<filter token="build.number" value="${build.number}"/>
+		</filterset>
+	</target>
+	
+	<!--
+	##########################################################################
+	#                            Compile targets                             #
+	##########################################################################
+	-->
+	<target name="compile.versions" depends="init">
+		<copy todir="${build.src.dir}/classes" 
+			includeemptydirs="false"
+			preservelastmodified="true">
+			<fileset dir="${src.dir}" 
+				includes="${version.files}"/>
+			<filterset refid="main" />
+			<filterset>
+				<filter token="build.number" value="${build.number}"/>
+			</filterset>
+		</copy>
+		<javac srcdir="${build.src.dir}/classes" destdir="${build.class.dir}"
+			includes="${version.files}" 
+			optimize="${optimize}" debug="${debug}" debuglevel="${debuglevel}" 
+			deprecation="${deprecation}" classpathref="classpath.extensions"
+			encoding="${compile.encoding}"
+			listfiles="${listfiles}">
+			<compilerarg value="-Xlint:unchecked" compiler="javac1.5" />
+		</javac>
+	</target>
+
+	<target name="compile.sdk" depends="init,compile.versions">
+		<javac srcdir="${src.dir}" destdir="${build.class.dir}"
+			includes="**/*.java"
+			excludes="${version.files}"
+			optimize="${optimize}" debug="${debug}" debuglevel="${debuglevel}"
+			deprecation="${deprecation}" classpathref="classpath.extensions"
+			encoding="${compile.encoding}" listfiles="false"
+			includeantruntime="false"
+		>
+		</javac>
+	</target>
+
+	<target name="compile.test" depends="compile.sdk,compile.versions">
+		<javac srcdir="${test.dir}" destdir="${build.class.dir}"
+			includes="**/*.java"
+			excludes="${version.files}"
+			optimize="${optimize}" debug="${debug}" debuglevel="${debuglevel}"
+			deprecation="${deprecation}" classpathref="junit.classpath"
+			encoding="${compile.encoding}" listfiles="false"
+			includeantruntime="false"
+		>
+		</javac>
+	</target>
+
+	<target name="compile" depends="compile.sdk"/>
+	
+	<!--
+	##########################################################################
+	#                            Javadoc targets                             #
+	##########################################################################
+	-->
+	<target name="api" depends="compile.sdk"
+		description="generate the API docs">
+		<property name="packages" value="${codebase}.*" />
+		<!-- appears in <head><title>...</title> -->
+		<property name="windowtitle" value="${product.name} ${product.version}" />
+		<!-- appears in <head><meta NAME="keywords" CONTENT="..."/> -->
+		<property name="doctitle" value="${product.name} ${product.version}" />
+		<!-- appears as heading in the <body> AND
+			as version info on the right of the nav_bar -->
+		<property name="header"
+			value="&lt;b&gt;${product.name}&lt;br&gt;
+				&lt;font size=&quot;-1&quot;&gt;Version
+				${product.version}&lt;/font&gt;&lt;/b&gt;" />
+		<!-- appears after the bottom nav_bar as footer -->
+		<property name="bottom"
+			value="&lt;font size=&quot;-1&quot;&gt;
+		Created by &lt;a href=&quot;${vendor.url}&quot;
+			&gt;${vendor.name}&lt;/a&gt;&lt;/font&gt;" />
+
+		<javadoc destdir="${build.docs.dir}/api" 
+			author="true" version="true" use="true" 
+			additionalparam="-breakiterator"
+			doctitle="${doctitle}" windowtitle="${windowtitle}" 
+			header="${header}"
+			bottom="${bottom}"
+			sourcepath="${src.dir}"
+			maxmemory="512m"
+		>
+			<classpath>
+				<pathelement path="${build.class.dir}" />
+				<path refid="classpath.extensions"/>
+			</classpath>
+			<fileset dir="${src.dir}/${codebase}"/>
+			<link href="${jdkAPI}" />
+		</javadoc>
+	</target>
+
+	<!--
+	##########################################################################
+	#                              JARS targets                              #
+	##########################################################################
+	-->
+	<target name="cp.res" depends="init">
+		<!-- copy over everything, what should be included into the jar -->
+		<copy todir="${build.class.dir}/${codebase}/" includeEmptyDirs="no">
+			<fileset dir="${src.dir}/${codebase}/">
+				<exclude name="**/*.xcf"/>
+				<exclude name="**/.xvpics/*"/>
+				<exclude name="**/design/*"/>
+				<exclude name="**/test/*"/>
+				<include name="**/res/**/*"/>
+			</fileset>
+		</copy>
+		<copy todir="${build.class.dir}/">
+			<fileset dir="${src.dir}" includes="META-INF/**/*"/>
+		</copy>
+	</target>
+	<target name="jars" depends="compile,cp.res" 
+		description="build jar files">
+		<jar destfile="${build.lib.dir}/${ant.project.name}-${product.version}.jar"
+			index="true"
+		>
+			<fileset dir="${build.class.dir}" includes="${codebase}/**/*,META-INF/**/*"/>
+			<manifest>
+				<attribute name="Implementation-Version" value="${product.version}"/>
+				<attribute name="Specification-Title" value="${product.name}"/>
+				<attribute name="Implementation-Title" value="${mf.impl.title}"/>
+				<attribute name="Extension-Name" value="${mf.extension.name}"/>
+				<attribute name="Created-By"
+					value="${java.runtime.version} ${user.name} [${os.name} ${os.version} ${os.arch}]"/>
+				<attribute name="Implementation-Vendor-Id" value="${mf.impl.vendor.id}"/>
+				<attribute name="Implementation-Vendor" value="${mf.impl.vendor}"/>
+			</manifest>
+		</jar>
+		<jar destfile="${build.lib.dir}/${ant.project.name}-${product.version}-src.jar"
+			index="true"
+		>
+			<fileset dir="${src.dir}" includes="${codebase}/**/*"/>
+			<manifest>
+				<attribute name="Implementation-Version" value="${product.version}"/>
+				<attribute name="Specification-Title" value="${product.name} Source"/>
+				<attribute name="Implementation-Title" value="${mf.impl.title} Source"/>
+				<attribute name="Extension-Name" value="${mf.extension.name}"/>
+				<attribute name="Created-By"
+					value="${java.runtime.version} ${user.name} [${os.name} ${os.version} ${os.arch}]"/>
+				<attribute name="Implementation-Vendor-Id" value="${mf.impl.vendor.id}"/>
+				<attribute name="Implementation-Vendor" value="${mf.impl.vendor}"/>
+			</manifest>
+		</jar>
+	</target>
+	
+	<!--
+	##########################################################################
+	#                             CLEAN targets                              #
+	##########################################################################
+	-->
+	<target name="clean">
+		<delete dir="${build.dir}" followsymlinks="false" />
+		<delete quiet="true" dir="${dist.dir}"/>
+	</target>
+
+	<!--
+	##########################################################################
+	#                              DIST targets                              #
+	##########################################################################
+	-->
+	<target name="cp.run.sh" depends="init">
+		<copy file="${src.dir}/run.sh"
+			tofile="${dist.dir}/bin/${ant.project.name}">
+			<filterset refid="main"/>
+		</copy>
+		<chmod file="${dist.dir}/bin/${ant.project.name}" perm="755"/>
+	</target>
+	<target name="cp.lics">
+		<copy file="${license.file}" tofile="${dist.dir}/docs/LICENSE.txt" />
+		<copy file="${lib.dir}/lics/NOTICE.txt" todir="${dist.dir}/docs" />
+		<concat
+			destfile="${dist.dir}/docs/${ant.project.name}-${product.version}-THIRDPARTYLICENSEREADME.txt"
+			append="no" fixlastline="yes">
+			<fileset dir="${lib.dir}/lics" includes="**/*.txt" />
+			<header filtering="no" trimleading="yes">
+				DO NOT TRANSLATE OR LOCALIZE.
+
+			</header>
+		</concat>
+	</target>
+
+	<target name="dist" depends="clean,jars,api,cp.lics,cp.run.sh">
+		<copy file="${src.dir}/logback.xml" todir="${dist.dir}/lib"/>
+		<copy todir="${dist.dir}/lib">
+			<fileset dir="${build.lib.dir}" includes="**/*.jar"/>
+		</copy>
+		<copy todir="${dist.dir}/lib" preservelastmodified="true">
+			<fileset dir="${lib.dir}">
+				<patternset refid="libs"/>
+			</fileset>
+		</copy>
+		<!--copy todir="${dist.dir}/docs">
+			<fileset dir="${build.docs.dir}"/>
+		</copy-->
+	</target>
+</project>

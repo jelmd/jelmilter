@@ -1,0 +1,12 @@
+Mail Filter for Java
+
+Copyright (c) 2008 Jens Elkner.
+All Rights Reserved.
+
+This software is the proprietary information of Jens Elkner.
+Use is subject to license terms.
+
+This product includes software developed at
+The Apache Software Foundation (http://www.apache.org/).
+
+===============================================================================

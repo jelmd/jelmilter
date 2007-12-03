@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<classpath>
+	<classpathentry kind="src" path="src"/>
+	<classpathentry kind="con" path="org.eclipse.jdt.launching.JRE_CONTAINER"/>
+	<classpathentry kind="lib" path="lib/dnsjava-2.0.5.jar"/>
+	<classpathentry kind="lib" path="lib/logback-classic-0.9.8.jar"/>
+	<classpathentry kind="lib" path="lib/logback-core-0.9.8.jar"/>
+	<classpathentry kind="lib" path="lib/mail.jar" sourcepath="/javamail/src/java"/>
+	<classpathentry kind="lib" path="lib/slf4j-api-1.4.3.jar"/>
+	<classpathentry kind="lib" path="lib/whois4j-1.0.0.jar"/>
+	<classpathentry kind="lib" path="lib/whois-spam-1.0.0.jar"/>
+	<classpathentry kind="lib" path="lib/milter4j-1.0.0.jar"/>
+	<classpathentry kind="output" path="build/classes"/>
+</classpath>
