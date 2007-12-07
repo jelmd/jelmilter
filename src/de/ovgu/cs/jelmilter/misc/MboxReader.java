@@ -15,6 +15,7 @@ import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.OutputStream;
 import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.net.URI;
@@ -281,7 +282,7 @@ public class MboxReader {
 	 */
 	public static void main(String[] args) throws IOException {
 		if (args.length < 1) {
-			System.err.println("Usage: java -cp ... MboxReader mboxFile");
+			System.err.println("Usage: java -cp ... MboxReader mboxFile outfile");
 			System.exit(1);
 		}
 		MboxReader mr = new MboxReader();
@@ -306,15 +307,28 @@ public class MboxReader {
 			uset.add(uri.toString());
 			buf.setLength(0);
 		}
+		OutputStream out = null;
+		if (args.length > 1) {
+			out = new FileOutputStream(args[1], false);
+		} else {
+			out = System.out;
+		}
+		out.write("<html><head><title>Spam analyse</title><head><body>".getBytes());
 		for (Entry<String, TreeSet<String>> e : set.entrySet()) {
 			buf.append(e.getKey());
 			buf.reverse();
-			buf.append('\n');
+			buf.append("\n<ul>\n");
 			for (String s : e.getValue()) {
-				buf.append("   ").append(s).append('\n');
+				buf.append("<li><a href=\"").append(s).append("\">").append(s)
+					.append("</a></li>\n");
 			}
-			System.out.println(buf.toString());
+			buf.append("</ul>\n");
+			out.write(buf.toString().getBytes());
 			buf.setLength(0);
+		}
+		out.write("</html>\n".getBytes());
+		if (args.length > 1) {
+			out.close();
 		}
 		log.info(set.size() + " domains");
 	}
