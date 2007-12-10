@@ -65,7 +65,7 @@ public class MboxReader {
 	 * @return	a possible empty list
 	 * @throws IOException
 	 */
-	public ArrayList<Mail> read(File mbox) throws IOException {
+	public static ArrayList<Mail> read(File mbox) throws IOException {
 		ArrayList<Mail> msg = new ArrayList<Mail>();
 		if (mbox == null) {
 			log.info("No mbox file to read - nothing to do");
@@ -258,7 +258,7 @@ public class MboxReader {
 			System.exit(1);
 		}
 		MboxReader mr = new MboxReader();
-		ArrayList<Mail> mails = mr.read(new File(args[0]));
+		ArrayList<Mail> mails = MboxReader.read(new File(args[0]));
 		ArrayList<URI> uriList = new ArrayList<URI>();
 		mr.dump(new File("/tmp/mail"), mails, uriList);
 		TreeMap<String, TreeSet<String>> set = new TreeMap<String,TreeSet<String>>();

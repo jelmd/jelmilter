@@ -10,6 +10,7 @@
 package de.ovgu.cs.jelmilter;
 
 import java.io.ByteArrayOutputStream;
+import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.InetSocketAddress;
@@ -34,6 +35,7 @@ import javax.mail.internet.MimeMultipart;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import de.ovgu.cs.jelmilter.misc.MboxReader;
 import de.ovgu.cs.milter4j.MailFilter;
 import de.ovgu.cs.milter4j.cmd.Type;
 import de.ovgu.cs.milter4j.reply.Packet;
@@ -305,6 +307,8 @@ public class WhoisCheck
 		SocketChannel ch = null;
 		try {
 			ch = SocketChannel.open();
+			ch.socket().setSoTimeout(5 * 60 * 1000);
+			ch.configureBlocking(true);
 			ch.connect(addr);
 			ByteBuffer bbuf = ByteBuffer.allocateDirect(buf.length()*2);
 			bbuf.putInt(buf.length());
@@ -315,10 +319,12 @@ public class WhoisCheck
 			}
 			buf.setLength(0);
 			lenBuffer.clear();
-			while (lenBuffer.hasRemaining() && (ch.read(bbuf) != -1)) {
+			while (lenBuffer.hasRemaining() && (ch.read(lenBuffer) != -1)) {
 				// continue;
 			}
+			lenBuffer.flip();
 			int len = lenBuffer.getInt();
+			bbuf.clear();
 			while ((ch.read(bbuf) != -1) && len > 0) {
 				bbuf.flip();
 				byte b;
@@ -328,6 +334,7 @@ public class WhoisCheck
 				bbuf.clear();
 			}
 		} catch (Exception e) {
+			buf.setLength(0);
 			log.warn(e.getLocalizedMessage());
 			if (log.isDebugEnabled()) {
 				log.debug("askWhois", e);
@@ -377,29 +384,54 @@ public class WhoisCheck
 			}
 			buf.setLength(buf.length()-1);
 			askWhois(buf);
-			String res[] = buf.toString().split(";");
-			for (int i=res.length-1; i >= 0; i--) {
-				if (res[i].length() < 1) {
-					continue;
-				}
-				char c = res[i].charAt(0);
-				if (c == 'A' || c == 'B' || c == 'F') {
-					ReplyPacket p = new ReplyPacket(554, "5.7.1", 
-						"Rejecting spam [" + c + "]");
-					log.info(res[i]);
-					ArrayList<Packet> rlist = new ArrayList<Packet>();
-					rlist.add(p);
-					return rlist;
-				} else if (c == 'T' || c == 'E' || c == 'N') {
-					ReplyPacket p = new ReplyPacket(421, "4.7.1", 
-						"Rejecting spam [" + c + "]");
-					log.info(res[i]);
-					ArrayList<Packet> rlist = new ArrayList<Packet>();
-					rlist.add(p);
-					return rlist;
+			if (buf.length() > 0) {
+				String res[] = buf.toString().split(";");
+				for (int i=res.length-1; i >= 0; i--) {
+					if (res[i].length() < 1) {
+						continue;
+					}
+					char c = res[i].charAt(0);
+					if (c == 'A' || c == 'B' || c == 'F') {
+						ReplyPacket p = new ReplyPacket(554, "5.7.1", 
+							"Rejecting spam [" + c + "]");
+						log.info(res[i]);
+						ArrayList<Packet> rlist = new ArrayList<Packet>();
+						rlist.add(p);
+						return rlist;
+					} else if (c == 'T' || c == 'E' || c == 'N') {
+						ReplyPacket p = new ReplyPacket(421, "4.7.1", 
+							"Rejecting spam [" + c + "]");
+						log.info(res[i]);
+						ArrayList<Packet> rlist = new ArrayList<Packet>();
+						rlist.add(p);
+						return rlist;
+					}
 				}
 			}
 		}
 		return null;
+	}
+	
+	/**
+	 * Read a mbox file and submit URLs found to the whois-spam server
+	 * @param args	0 .. server:port, 1 .. mbox file to read
+	 * @throws IOException 
+	 */
+	public static void main(String[] args) throws IOException {
+		if (args.length < 2) {
+			log.warn("Usage: java -cp ... WhoisCheck server:port mboxFile");
+			System.exit(1);
+		}
+		ArrayList<Mail> mails = MboxReader.read(new File(args[1]));
+		WhoisCheck checker = new WhoisCheck(args[0]);
+		int count = 1;
+		for (Mail mail : mails) {
+			List<Packet> list = checker.doEndOfMail(null, null, mail);
+			if (list != null) {
+				for (Packet p : list) {
+					log.info("msg " + count + " :" + p.toString());
+				}
+			}
+		}
 	}
 }
