@@ -183,12 +183,12 @@ public class WhoisCheck
 	
 	/** Pattern to use to extract http:// URLs */
 	public static Pattern uriPattern = 
-		Pattern.compile("http://[-a-zA-Z0-9/\\.]*");
+		Pattern.compile("http://[-a-zA-Z0-9/\\.]+");
 	/** Pattern to use to extract pseudo URLs, i.e. starting with {@code www.}
 	 * but not with http://
 	 */
 	public static Pattern wwwPattern = 
-		Pattern.compile("(^|[^/])(www\\.[-a-zA-Z0-9/\\.]*)");
+		Pattern.compile("(^|[^/])(www\\.[-a-zA-Z0-9/\\.]+)");
 	
 	/**
 	 * Find URLs and URL like strings in the given target.
@@ -200,7 +200,9 @@ public class WhoisCheck
 		while (m.find()) {
 			try {
 				URI uri = new URI(m.group());
-				list.add(uri);
+				if (uri.getHost().indexOf('.') != -1) {
+					list.add(uri);
+				}
 			} catch (URISyntaxException e) {
 				log.warn(e.getLocalizedMessage());
 				if (log.isDebugEnabled()) {
@@ -375,7 +377,7 @@ public class WhoisCheck
 		}
 		if (list.size() > 0) {
 			HashMap<String,URI> map = new HashMap<String,URI>();
-			for(URI uri : list) {
+			for (URI uri : list) {
 				map.put(uri.getHost(), uri);
 			}
 			StringBuilder buf = new StringBuilder();
