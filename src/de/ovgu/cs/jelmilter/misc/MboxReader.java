@@ -19,14 +19,11 @@ import java.io.OutputStream;
 import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.net.URI;
-import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.TreeMap;
 import java.util.TreeSet;
 import java.util.Map.Entry;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 import javax.mail.BodyPart;
 import javax.mail.MessagingException;
@@ -37,6 +34,7 @@ import javax.mail.util.SharedByteArrayInputStream;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import de.ovgu.cs.jelmilter.WhoisCheck;
 import de.ovgu.cs.milter4j.util.Mail;
 import de.ovgu.cs.whois.Whois;
 
@@ -148,47 +146,13 @@ public class MboxReader {
 		}
 	}
 	
-	private String getExtension(String contentType) {
-		String[] tmp = contentType.split(";");
-		int idx = tmp[0].lastIndexOf('/');
-		char[] ext = (idx != -1) 
-			? tmp[0].substring(idx+1).toCharArray()
-			: tmp[0].toCharArray();
-		StringBuilder buf = new StringBuilder();
-		for (int i=0; i < ext.length; i++) {
-			if (Character.isJavaIdentifierPart(ext[i])) {
-				buf.append(ext[i]);
-			} else {
-				buf.append('_');
-			}
-		}
-		return buf.toString();
-	}
-	
-	Pattern uriPattern = Pattern.compile("http://[-a-zA-Z0-9/\\.]*");
-	
-	private void findURIs(String s, List<URI> list) {
-		Matcher m = uriPattern.matcher(s);
-		while (m.find()) {
-			try {
-				URI uri = new URI(m.group());
-				list.add(uri);
-			} catch (URISyntaxException e) {
-				log.warn(e.getLocalizedMessage());
-				if (log.isDebugEnabled()) {
-					log.debug("method()", e);
-				}
-			}
-		}
-	}
-	
 	private void dumpObject(File dir, String prefix, int count, Object o,
 		String contentType, List<URI> uriList) 
 	{
 		if (o instanceof String) {
 			String s = o.toString();
 			dump(new File(dir, prefix + ".txt"), s.getBytes());
-			findURIs(s, uriList);
+			WhoisCheck.findURIs(s, uriList);
 		} else if (o instanceof MimeMultipart) {
 			try {
 				MimeMultipart part = (MimeMultipart) o;
@@ -221,9 +185,9 @@ public class MboxReader {
 			} finally {
 				try { in.close(); } catch (Exception x) { /* ignore */ }
 			}
-			String ext = getExtension(contentType);
+			String ext = WhoisCheck.getExtension(contentType);
 			if (ext.equals("plain") || ext.equals("html") || ext.equals("xml")) {
-				findURIs(new String(bos.toByteArray()), uriList);
+				WhoisCheck.findURIs(new String(bos.toByteArray()), uriList);
 			}
 			dump(new File(dir, prefix + "." + ext), bos.toByteArray());
 		} else if (o instanceof MimeMessage) {
@@ -243,6 +207,14 @@ public class MboxReader {
 		}
 	}
 
+	/**
+	 * Dump all message parts to the given directory prefixed with the number 
+	 * of message in mailbox order.
+	 * @param dir		base directory for storage
+	 * @param mails		mails to dump
+	 * @param uriList	if URLs are found in text parts of the mails, add them 
+	 * 		to this list
+	 */
 	public void dump(File dir, ArrayList<Mail> mails, List<URI> uriList) {
 		if (!dir.exists()) {
 			if (!dir.mkdir()) {
