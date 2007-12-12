@@ -401,13 +401,15 @@ public class WhoisCheck
 						rlist.add(p);
 						return rlist;
 					} else if (c == 'T' || c == 'E' || c == 'N') {
-						ReplyPacket p = new ReplyPacket(421, "4.7.1", 
+						ReplyPacket p = new ReplyPacket(451, "4.7.1", 
 							"Rejecting spam [" + c + "]");
 						log.info(res[i]);
 						ArrayList<Packet> rlist = new ArrayList<Packet>();
 						rlist.add(p);
 						return rlist;
 					}
+					// whitelisted domain is not sufficient for accept since
+					// might be injected/faked as well
 				}
 			}
 		}
