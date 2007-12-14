@@ -139,9 +139,7 @@ public class HeloCheck
 						break;
 					}
 				}
-			}
-			// HLO $hostname should match client-IP
-			if (!clientAddress.isLoopbackAddress()) {
+				// HLO $hostname should match client-IP
 				boolean match = false;
 				byte[] ca = clientAddress.getAddress();
 				for (int i=a.length-1; i >= 0; i--) {
@@ -156,7 +154,7 @@ public class HeloCheck
 						+ clientAddress.getHostAddress());
 				}
 			}
-		} catch (UnknownHostException e) {
+		} catch (Exception e) {
 			a = null;
 			log.debug(e.getLocalizedMessage());
 		}
