@@ -105,11 +105,12 @@ public class HeloCheck
 		if (hostname.startsWith("[")) {
 			return new ReplyPacket(554, "5.7.1", "Fix reverse DNS for " + info);
 		}
+		clientAddress = null;
 		if (family == AddressFamily.INET || family == AddressFamily.INET6) {
 			try {
 				clientAddress = InetAddress.getByName(info);
 			} catch (UnknownHostException e) {
-				// ignore
+				// ignore;
 			}
 		}
 		return new ContinuePacket();
