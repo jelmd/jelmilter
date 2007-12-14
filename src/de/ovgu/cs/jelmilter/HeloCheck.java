@@ -109,6 +109,7 @@ public class HeloCheck
 		if (family == AddressFamily.INET || family == AddressFamily.INET6) {
 			try {
 				clientAddress = InetAddress.getByName(info);
+				log.debug("clinet addr = {}", clientAddress.getHostAddress());
 			} catch (UnknownHostException e) {
 				// ignore;
 			}
@@ -133,7 +134,7 @@ public class HeloCheck
 				}
 			}
 			// make sure, that the remote client does not HLO with a loopback addr
-			if (clientAddress != null && !clientAddress.isLoopbackAddress()) {
+			if (a != null && clientAddress != null && !clientAddress.isLoopbackAddress()) {
 				for (int i=a.length-1; i >= 0; i--) {
 					if (a[i].isLoopbackAddress()) {
 						a = null;
@@ -141,18 +142,20 @@ public class HeloCheck
 					}
 				}
 				// HLO $hostname should match client-IP
-				boolean match = false;
-				byte[] ca = clientAddress.getAddress();
-				for (int i=a.length-1; i >= 0; i--) {
-					byte[] da = a[i].getAddress();
-					if (Arrays.equals(ca, da)) {
-						match = true;
-						break;
+				if (a != null) {
+					boolean match = false;
+					byte[] ca = clientAddress.getAddress();
+					for (int i=a.length-1; i >= 0; i--) {
+						byte[] da = a[i].getAddress();
+						if (Arrays.equals(ca, da)) {
+							match = true;
+							break;
+						}
 					}
-				}
-				if (!match) {
-					log.warn("HELO " + domain + " does not match client " 
-						+ clientAddress.getHostAddress());
+					if (!match) {
+						log.warn("HELO " + domain + " does not match client " 
+							+ clientAddress.getHostAddress());
+					}
 				}
 			}
 		} catch (Exception e) {
