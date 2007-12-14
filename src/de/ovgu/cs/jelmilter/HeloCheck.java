@@ -109,7 +109,7 @@ public class HeloCheck
 		if (family == AddressFamily.INET || family == AddressFamily.INET6) {
 			try {
 				clientAddress = InetAddress.getByName(info);
-				log.debug("clinet addr = {}", clientAddress.getHostAddress());
+				log.debug("{}: client addr = {}", name, clientAddress.toString());
 			} catch (UnknownHostException e) {
 				// ignore;
 			}
@@ -153,7 +153,8 @@ public class HeloCheck
 						}
 					}
 					if (!match) {
-						log.warn("HELO " + domain + " does not match client " 
+						log.warn(name + ": HELO " + domain 
+							+ " does not match client " 
 							+ clientAddress.getHostAddress());
 					}
 				}
