@@ -36,12 +36,15 @@ public class HeloCheck
 	private static final AtomicInteger instCounter = new AtomicInteger();
 	private String name;
 	private InetAddress clientAddress;
+	private String params;
 
 	/**
 	 * Create a new instance
+	 * @param params unused
 	 */
-	public HeloCheck() {
+	public HeloCheck(String params) {
 		name = "HeloCheck " + instCounter.getAndIncrement();
+		this.params = params;
 	}
 
 	/**
@@ -65,7 +68,7 @@ public class HeloCheck
 	 */
 	@Override
 	public MailFilter getInstance() {
-		return new HeloCheck();
+		return new HeloCheck(params);
 	}
 
 	/**
@@ -166,7 +169,7 @@ public class HeloCheck
 	 * @param args	
 	 */
 	public static void main(String[] args) {
-		HeloCheck h = new HeloCheck();
+		HeloCheck h = new HeloCheck(null);
 		log.info(h.doHelo("localhost").toString());
 	}
 }
