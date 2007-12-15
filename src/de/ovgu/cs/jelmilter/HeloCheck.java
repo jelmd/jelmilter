@@ -11,6 +11,7 @@ package de.ovgu.cs.jelmilter;
 
 import java.net.InetAddress;
 import java.net.UnknownHostException;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.EnumSet;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -36,15 +37,21 @@ public class HeloCheck
 	private static final AtomicInteger instCounter = new AtomicInteger();
 	private String name;
 	private InetAddress clientAddress;
-	private String params;
+	private boolean strict;
+	private String[] whitelist;
 
 	/**
-	 * Create a new instance
-	 * @param params unused
+	 * Create a new instance.
+	 * If the param starts with {@code strict}, connecting clients need to
+	 * HELO with a hostname, which matches their IP-Address. It might be 
+	 * followed by a list of domains or hostnames, for which the helo check
+	 * should be skipped (match uses *.endsWith(domain).
+	 * 
+	 * @param params [strict:]domain,...,domain
 	 */
 	public HeloCheck(String params) {
 		name = "HeloCheck " + instCounter.getAndIncrement();
-		this.params = params;
+		reconfigure(params);
 	}
 
 	/**
@@ -68,7 +75,10 @@ public class HeloCheck
 	 */
 	@Override
 	public MailFilter getInstance() {
-		return new HeloCheck(params);
+		HeloCheck hc = new HeloCheck(null);
+		hc.strict = strict;
+		hc.whitelist = whitelist;
+		return hc;
 	}
 
 	/**
@@ -83,7 +93,30 @@ public class HeloCheck
 	 * {@inheritDoc}
 	 */
 	@Override
-	public boolean reconfigure(String param) {
+	public boolean reconfigure(String params) {
+		if (params != null) {
+			strict = params.startsWith("strict");
+			String doms = params;
+			if (strict) {
+				doms = params.length() > "strict".length() +1
+					? params.substring("strict".length()+1)
+					: "";
+			}
+			String[] tmp = doms.split(",");
+			ArrayList<String> hnames = new ArrayList<String>();
+			for (int i=0; i < tmp.length; i++) {
+				String t = tmp[i].trim();
+				if (t.length() != 0) {
+					hnames.add(t);
+				}
+			}
+			whitelist = hnames.size() > 0 
+				? hnames.toArray(new String[hnames.size()])
+				: null;
+		} else {
+			whitelist = null;
+			strict = false;
+		}
 		return true;
 	}
 	
@@ -122,6 +155,13 @@ public class HeloCheck
 	 */
 	@Override
 	public Packet doHelo(String domain) {
+		if (whitelist != null) {
+			for (int i=0; i < whitelist.length; i++) {
+				if (domain.endsWith(whitelist[i])) {
+					return new ContinuePacket();
+				}
+			}
+		}
 		InetAddress[] a = null;
 		try {
 			a = InetAddress.getAllByName(domain);
@@ -133,29 +173,37 @@ public class HeloCheck
 					break;
 				}
 			}
-			// make sure, that the remote client does not HLO with a loopback addr
-			if (a != null && clientAddress != null && !clientAddress.isLoopbackAddress()) {
+			// make sure, that the remote client does not HLO with a local addr
+			boolean isLocalClient = clientAddress == null
+				|| clientAddress.isLinkLocalAddress() 
+				|| clientAddress.isLoopbackAddress()
+				|| clientAddress.isSiteLocalAddress();
+			if (a != null && !isLocalClient) {
 				for (int i=a.length-1; i >= 0; i--) {
-					if (a[i].isLoopbackAddress()) {
+					if (a[i].isLoopbackAddress() || a[i].isLinkLocalAddress()
+						|| a[i].isSiteLocalAddress()) 
+					{
 						a = null;
 						break;
 					}
 				}
-				// HLO $hostname should match client-IP
-				if (a != null) {
-					boolean match = false;
-					byte[] ca = clientAddress.getAddress();
-					for (int i=a.length-1; i >= 0; i--) {
-						byte[] da = a[i].getAddress();
-						if (Arrays.equals(ca, da)) {
-							match = true;
-							break;
+				if (a != null && (strict || domain.indexOf('.') == -1)) {
+					// HLO $hostname should match client-IP
+					if (a != null) {
+						boolean match = false;
+						byte[] ca = clientAddress.getAddress();
+						for (int i=a.length-1; i >= 0; i--) {
+							byte[] da = a[i].getAddress();
+							if (Arrays.equals(ca, da)) {
+								match = true;
+								break;
+							}
 						}
-					}
-					if (!match) {
-						log.warn(name + ": HELO " + domain 
-							+ " does not match client " 
-							+ clientAddress.getHostAddress());
+						if (!match) {
+							return new ReplyPacket(554, "5.7.1", 
+								"MTA is not " + domain 
+								+ " - fix reverse DNS/MTA configuration");
+						}
 					}
 				}
 			}
@@ -169,10 +217,16 @@ public class HeloCheck
 	}
 	
 	/**
-	 * @param args	
+	 * @param args	none
 	 */
 	public static void main(String[] args) {
-		HeloCheck h = new HeloCheck(null);
-		log.info(h.doHelo("localhost").toString());
+		HeloCheck h = new HeloCheck("strict");
+		h.doConnect("p54BC8CDD.dip0.t-ipconnect.de", AddressFamily.INET,
+			61739, "84.188.140.221");
+		log.info(h.doHelo("strict:fred.los.de").toString());
+		h = new HeloCheck("los.de");
+		h.doConnect("p54BC8CDD.dip0.t-ipconnect.de", AddressFamily.INET,
+			61739, "84.188.140.221");
+		log.info(h.doHelo("fred.los.de").toString());
 	}
 }
