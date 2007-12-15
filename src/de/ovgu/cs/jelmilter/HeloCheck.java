@@ -171,6 +171,12 @@ public class HeloCheck
 		}
 		InetAddress[] a = null;
 		try {
+			if (domain.startsWith("[") && domain.endsWith("]")) {
+				// das beknackte thunderbird sagt EHLO [IP] - brainfuck
+				domain = domain.substring(1, domain.length()-1);
+				InetAddress x = InetAddress.getByName(domain);
+				domain = x.getCanonicalHostName();
+			}
 			a = InetAddress.getAllByName(domain);
 			// we do not allow IP-Address, but hostnames, only
 			for (int i=a.length-1; i >= 0; i--) {
