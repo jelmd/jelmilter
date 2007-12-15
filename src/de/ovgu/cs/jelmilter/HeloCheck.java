@@ -39,6 +39,7 @@ public class HeloCheck
 	private InetAddress clientAddress;
 	private boolean strict;
 	private String[] whitelist;
+	private String reverse;
 
 	/**
 	 * Create a new instance.
@@ -68,6 +69,7 @@ public class HeloCheck
 	@Override
 	public void doQuit() {
 		clientAddress = null;
+		reverse = null;
 	}
 
 	/**
@@ -136,8 +138,10 @@ public class HeloCheck
 		String info) 
 	{
 		if (hostname.startsWith("[")) {
-			return new ReplyPacket(554, "5.7.1", "Fix reverse DNS for " + info);
+			reverse = info;
+			return new ContinuePacket();
 		}
+		reverse = null;
 		clientAddress = null;
 		if (family == AddressFamily.INET || family == AddressFamily.INET6) {
 			try {
@@ -155,6 +159,9 @@ public class HeloCheck
 	 */
 	@Override
 	public Packet doHelo(String domain) {
+		if (reverse != null) {
+			return new ReplyPacket(554, "5.7.1", "Fix reverse DNS for " + reverse);
+		}
 		if (whitelist != null) {
 			for (int i=0; i < whitelist.length; i++) {
 				if (domain.endsWith(whitelist[i])) {
