@@ -18,6 +18,9 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.xbill.DNS.Lookup;
+import org.xbill.DNS.MXRecord;
+import org.xbill.DNS.Record;
 
 import de.ovgu.cs.milter4j.AddressFamily;
 import de.ovgu.cs.milter4j.MailFilter;
@@ -137,7 +140,7 @@ public class HeloCheck
 	public Packet doConnect(String hostname, AddressFamily family, int port, 
 		String info) 
 	{
-		if (hostname.startsWith("[")) {
+		if (hostname.startsWith("[") || hostname.startsWith("IPv6:")) {
 			reverse = info;
 			return new ContinuePacket();
 		}
@@ -154,6 +157,27 @@ public class HeloCheck
 		return new ContinuePacket();
 	}
 
+	private boolean domainIsMX(String domain, InetAddress addr) {
+		// allow, that the EHLO name is an MX for the given client address
+		try {
+			String aname = addr.getHostName();
+			Record[] res = 
+				new Lookup(aname, org.xbill.DNS.Type.MX).run();
+			aname = domain + ".";
+			if (res != null && res.length > 0) {
+				for (int i=res.length-1; i >= 0; i--) {
+					String mx = ((MXRecord) res[i]).getTarget().toString();
+					if (mx.equals(aname)) {
+						return true;
+					}
+				}
+			}
+		} catch (Exception e) {
+			// ignore
+		}
+		return false;
+	}
+	
 	/**
 	 * {@inheritDoc}
 	 */
@@ -176,9 +200,13 @@ public class HeloCheck
 				domain = domain.substring(1, domain.length()-1);
 				InetAddress x = InetAddress.getByName(domain);
 				domain = x.getCanonicalHostName();
+			} else if (domain.startsWith("IPv6:")) {
+				domain = domain.substring(5);
+				InetAddress x = InetAddress.getByName(domain);
+				domain = x.getCanonicalHostName();
 			}
 			a = InetAddress.getAllByName(domain);
-			// we do not allow IP-Address, but hostnames, only
+			// raw IP-Addresses are not allowed
 			for (int i=a.length-1; i >= 0; i--) {
 				String addr = a[i].getHostAddress();
 				if (domain.equals(addr)) {
@@ -212,7 +240,7 @@ public class HeloCheck
 								break;
 							}
 						}
-						if (!match) {
+						if (!match && !domainIsMX(domain, clientAddress)) {
 							return new ReplyPacket(554, "5.7.1", 
 								"MTA is not " + domain 
 								+ " - fix reverse DNS/MTA configuration");
@@ -236,8 +264,11 @@ public class HeloCheck
 		HeloCheck h = new HeloCheck("strict");
 		h.doConnect("p54BC8CDD.dip0.t-ipconnect.de", AddressFamily.INET,
 			61739, "84.188.140.221");
-		log.info(h.doHelo("strict:fred.los.de").toString());
-		h = new HeloCheck("los.de");
+		log.info(h.doHelo("fred.los.de").toString());
+		h.doConnect("gambrinus.cs.uni-magdeburg.de", AddressFamily.INET,
+			61739, "141.44.23.22");
+		log.info(h.doHelo("luxator.cs.uni-magdeburg.de").toString());
+		h = new HeloCheck("strict:los.de");
 		h.doConnect("p54BC8CDD.dip0.t-ipconnect.de", AddressFamily.INET,
 			61739, "84.188.140.221");
 		log.info(h.doHelo("fred.los.de").toString());

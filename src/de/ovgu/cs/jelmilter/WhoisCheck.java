@@ -394,7 +394,7 @@ public class WhoisCheck
 					}
 					char c = res[i].charAt(0);
 					if (c == 'A' || c == 'B' || c == 'F') {
-						ReplyPacket p = new ReplyPacket(554, "5.7.1", 
+						ReplyPacket p = new ReplyPacket(550, "5.7.1", 
 							"Rejecting spam [" + c + "]");
 						log.info(res[i]);
 						ArrayList<Packet> rlist = new ArrayList<Packet>();

@@ -149,6 +149,7 @@ public class MboxReader {
 	private void dumpObject(File dir, String prefix, int count, Object o,
 		String contentType, List<URI> uriList) 
 	{
+		log.info(contentType);
 		if (o instanceof String) {
 			String s = o.toString();
 			dump(new File(dir, prefix + ".txt"), s.getBytes());
