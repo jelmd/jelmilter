@@ -210,23 +210,23 @@ public class Rule {
 				}
 			}
 		} else if (o instanceof InputStream) {
-			InputStream in = (InputStream) o;
-			ByteArrayOutputStream bos = new ByteArrayOutputStream(4096);
-			byte[] dst = new byte[4096];
-			int read = 0;
-			try {
-				while ((read = in.read(dst)) != -1) {
-					bos.write(dst, 0, read);
-				}
-			} catch (IOException e) {
-				log.warn(e.getLocalizedMessage());
-				if (log.isDebugEnabled()) {
-					log.debug("method()", e);
-				}
-			} finally {
-				try { in.close(); } catch (Exception x) { /* ignore */ }
-			}
 			if (matchesContent(contentType)) {
+				InputStream in = (InputStream) o;
+				ByteArrayOutputStream bos = new ByteArrayOutputStream(4096);
+				byte[] dst = new byte[4096];
+				int read = 0;
+				try {
+					while ((read = in.read(dst)) != -1) {
+						bos.write(dst, 0, read);
+					}
+				} catch (IOException e) {
+					log.warn(e.getLocalizedMessage());
+					if (log.isDebugEnabled()) {
+						log.debug("method()", e);
+					}
+				} finally {
+					try { in.close(); } catch (Exception x) { /* ignore */ }
+				}
 				String txt = new String(bos.toByteArray());
 				if (find != null) {
 					return txt.indexOf(find) != -1;
