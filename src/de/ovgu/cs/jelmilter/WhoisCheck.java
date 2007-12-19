@@ -377,8 +377,14 @@ public class WhoisCheck
 		}
 		if (list.size() > 0) {
 			HashMap<String,URI> map = new HashMap<String,URI>();
+			boolean kanaweb = false;
 			for (URI uri : list) {
-				map.put(uri.getHost(), uri);
+				String host = uri.getHost();
+				if (!host.startsWith("kanaweb")) {
+					map.put(host, uri);
+				} else {
+					kanaweb = true;
+				}
 			}
 			StringBuilder buf = new StringBuilder();
 			for (String host : map.keySet()) {
@@ -392,17 +398,19 @@ public class WhoisCheck
 					if (res[i].length() < 1) {
 						continue;
 					}
+					ReplyPacket p = null;
 					char c = res[i].charAt(0);
 					if (c == 'A' || c == 'B' || c == 'F') {
-						ReplyPacket p = new ReplyPacket(550, "5.7.1", 
+						p = new ReplyPacket(550, "5.7.1", 
 							"Rejecting spam [" + c + "]");
-						log.info(res[i]);
-						ArrayList<Packet> rlist = new ArrayList<Packet>();
-						rlist.add(p);
-						return rlist;
 					} else if (c == 'T' || c == 'E' || c == 'N') {
-						ReplyPacket p = new ReplyPacket(451, "4.7.1", 
+						p = new ReplyPacket(451, "4.7.1", 
 							"Rejecting spam [" + c + "]");
+					} else if (kanaweb) {
+						p = new ReplyPacket(550, "5.7.1", 
+							"Rejecting kanaweb spam");
+					}
+					if (p != null) {
 						log.info(res[i]);
 						ArrayList<Packet> rlist = new ArrayList<Packet>();
 						rlist.add(p);
