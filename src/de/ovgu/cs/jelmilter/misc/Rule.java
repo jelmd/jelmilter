@@ -337,14 +337,14 @@ public class Rule {
 		tmp = in.getAttributeValue(null, "not");
 		not = tmp != null && tmp.equals("true");
 		if (isFind != null) {
-			tmp = in.getAttributeValue(null, "source");
+			tmp = in.getAttributeValue(null, "src");
 			try {
 				source = Source.valueOf(tmp.toUpperCase());
 			} catch (Exception e) {
 				log.warn(e.getLocalizedMessage());
 			}
 			if (source == null) {
-				throw new XMLStreamException("'source' attribute required", 
+				throw new XMLStreamException("'src' attribute required", 
 					in.getLocation());
 			}
 			if (source == Source.HEADER) {

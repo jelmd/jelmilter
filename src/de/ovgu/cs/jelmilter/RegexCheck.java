@@ -10,8 +10,10 @@
 package de.ovgu.cs.jelmilter;
 
 import java.io.File;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.EnumSet;
+import java.util.Enumeration;
 import java.util.HashMap;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -27,6 +29,7 @@ import javax.xml.transform.stream.StreamSource;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import de.ovgu.cs.jelmilter.misc.MboxReader;
 import de.ovgu.cs.jelmilter.misc.RuleSet;
 import de.ovgu.cs.jelmilter.misc.Source;
 import de.ovgu.cs.milter4j.MailFilter;
@@ -51,6 +54,9 @@ public class RegexCheck
 
 	/** Default file name of the configuration file */
 	public static final String DEFAULT_CONFIG = "/etc/mail/regex.conf";
+	/** the defasult max. message size to be considered as spam */
+	public static final int DEFAUL_MAX_SIZE = 50 * 1024;
+	
 	
 	private String[] mailFrom;
 	private String[] recipientsTo;
@@ -262,7 +268,7 @@ public class RegexCheck
 				}
 				Packet p = ruleSet[currentRuleIdx]
 				    .eval(from, rcpts, macros, headers, mail);
-				if (p != null) {
+				if (p != null && p.getType() != de.ovgu.cs.milter4j.reply.Type.CONTINUE) {
 					log.info("Rule \"{}\" matched", 
 						ruleSet[currentRuleIdx].getId());
 					return p;
@@ -312,7 +318,7 @@ public class RegexCheck
 		ArrayList<Packet> l = new ArrayList<Packet>();
 		try {
 			// MAIL FROM: has not always a SIZE= value
-			if (mail.getSize() > maxSize) {
+			if (maxSize > 0 && mail.getSize() > maxSize) {
 				l.add(new AcceptPacket(false));
 				return l;
 			}
@@ -387,6 +393,63 @@ public class RegexCheck
 			}
 		}
 		ruleSet = rsets.toArray(new RuleSet[rsets.size()]);
+		log.info("Found " + ruleSet.length + " valid rules");
 		currentRuleIdx = 0;
+	}
+	
+	/**
+	 * @param args	0 .. the mbox file to read and scan, [1 .. the config file to use]
+	 * @throws IOException 
+	 */
+	public static void main(String[] args) throws IOException {
+		if (args.length < 1) {
+			System.err.println("Usage: java -cp ... RegexCheck mboxFile [configFile]");
+			System.exit(1);
+		}
+		RegexCheck rc = new RegexCheck(args.length > 1 ? args[1] : null);
+		ArrayList<Mail> mails = MboxReader.read(new File(args[0]));
+		EnumSet<Type> cmds = rc.getCommands();
+		if (cmds.contains(Type.MAIL)) {
+			log.warn("'MAIL FROM:' targets not called (not available)");
+		}
+		if (cmds.contains(Type.RCPT)) {
+			log.warn("'RCPT TO:' targets not called (not available)");
+		}
+		int count = 0;
+		for (Mail mail : mails) {
+			count++;
+			try {
+				Packet p = null;
+				if (cmds.contains(Type.EOH)) {
+					Enumeration<?> h = mail.getAllHeaders();
+					ArrayList<Header> headers = new ArrayList<Header>();
+					while (h.hasMoreElements()) {
+						headers.add((Header) h.nextElement());
+					}
+					p = rc.doEndOfHeader(headers, null);
+				}
+				if (p != null 
+					&& p.getType() != de.ovgu.cs.milter4j.reply.Type.CONTINUE) 
+				{
+					log.info("msg " + count + ": " + String.valueOf(p));
+					continue;
+				}
+				if (cmds.contains(Type.BODYEOB)) {
+					List<Packet> l = rc.doEndOfMail(null, null, mail);
+					if (l != null) {
+						for (Packet lp : l) {
+							if (lp.getType() != de.ovgu.cs.milter4j.reply.Type.CONTINUE) {
+								log.info("msg " + count + ": " + lp.toString());
+							}
+						}
+					}
+				}
+			} catch (MessagingException e) {
+				log.warn(e.getLocalizedMessage());
+				if (log.isDebugEnabled()) {
+					log.debug("method()", e);
+				}
+			}
+		}
 	}
 }
