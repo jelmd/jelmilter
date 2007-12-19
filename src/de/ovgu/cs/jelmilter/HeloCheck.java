@@ -259,18 +259,18 @@ public class HeloCheck
 	
 	/**
 	 * @param args	none
+	 * @throws UnknownHostException 
 	 */
-	public static void main(String[] args) {
-		HeloCheck h = new HeloCheck("strict");
-		h.doConnect("p54BC8CDD.dip0.t-ipconnect.de", AddressFamily.INET,
-			61739, "84.188.140.221");
-		log.info(h.doHelo("fred.los.de").toString());
-		h.doConnect("gambrinus.cs.uni-magdeburg.de", AddressFamily.INET,
-			61739, "141.44.23.22");
-		log.info(h.doHelo("luxator.cs.uni-magdeburg.de").toString());
-		h = new HeloCheck("strict:los.de");
-		h.doConnect("p54BC8CDD.dip0.t-ipconnect.de", AddressFamily.INET,
-			61739, "84.188.140.221");
-		log.info(h.doHelo("fred.los.de").toString());
+	public static void main(String[] args) throws UnknownHostException {
+		if (args.length < 3) {
+			System.err.println("Usage: java -cp HeloCheck "
+				+ "{[strict][:(FQHN|FQDN,)*]} clientIP helo_arg");
+			System.exit(1);
+		}
+		HeloCheck h = new HeloCheck(args[0]);
+		InetAddress addr = InetAddress.getByName(args[1]);
+		h.doConnect(addr.getCanonicalHostName(), AddressFamily.INET, 61739, 
+			args[1]);
+		log.info(h.doHelo(args[2]).toString());
 	}
 }

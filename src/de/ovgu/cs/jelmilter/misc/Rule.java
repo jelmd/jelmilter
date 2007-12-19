@@ -85,6 +85,9 @@ public class Rule {
 					res = body(mail);
 					break;
 			}
+			if (res && id != null) {
+				log.info("Rule \"{}\" matched", id);
+			}
 		} else if (rules != null) {
 			boolean shortCut = false;
 			for (int i=0; i < rules.length; i++) {

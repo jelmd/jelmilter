@@ -255,19 +255,24 @@ public class MboxReader {
 	 */
 	public static void main(String[] args) throws IOException {
 		if (args.length < 1) {
-			System.err.println("Usage: java -cp ... MboxReader mboxFile outfile");
+			System.err.println("Usage: java -cp ... MboxReader mboxFile [outfile]");
 			System.exit(1);
 		}
 		MboxReader mr = new MboxReader();
 		ArrayList<Mail> mails = MboxReader.read(new File(args[0]));
 		ArrayList<URI> uriList = new ArrayList<URI>();
-		mr.dump(new File("/tmp/mail"), mails, uriList);
+		String tmpdir = System.getProperty("java.io.tmpdir");
+		if (tmpdir == null) {
+			tmpdir ="/tmp";
+		}
+		File dir = new File(tmpdir, "mail");
+		log.info("dumping to " + dir);
+		mr.dump(dir, mails, uriList);
 		TreeMap<String, TreeSet<String>> set = new TreeMap<String,TreeSet<String>>();
 		log.info("Found " + uriList.size() + " URLs");
 		StringBuilder buf = new StringBuilder();
 		Whois whois = new Whois();
 		for (URI uri : uriList) {
-//			System.out.println(uri);
 			String host = whois.getTldNormalizedDomain(uri.getHost());
 			buf.append(host);
 			buf.reverse();

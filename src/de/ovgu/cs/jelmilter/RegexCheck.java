@@ -269,7 +269,7 @@ public class RegexCheck
 				Packet p = ruleSet[currentRuleIdx]
 				    .eval(from, rcpts, macros, headers, mail);
 				if (p != null && p.getType() != de.ovgu.cs.milter4j.reply.Type.CONTINUE) {
-					log.info("Rule \"{}\" matched", 
+					log.info("RuleSet \"{}\" matched", 
 						ruleSet[currentRuleIdx].getId());
 					return p;
 				}

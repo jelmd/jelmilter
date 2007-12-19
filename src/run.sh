@@ -26,9 +26,11 @@ export LC_CTYPE=en_US
 
 Usage() {
 cat<<EOF
-Usage: ${0} [-h] [shutdown]
+Usage: ${0} [-h] [-r] [-v] [shutdown]
 
     -h        print this help and exit
+    -r        regex check the given mbox file
+    
 EOF
 }
 
@@ -48,9 +50,13 @@ if [ -z "$JVM_FLAGS" ]; then
 	JVM_FLAGS=" "
 fi
 
-while getopts "h" option ; do
+while getopts "hwerm" option ; do
 	case "$option" in
 		h) Usage; exit 0 ;;
+		r) START_CLASS=RegexCheck ;;
+		e) START_CLASS=HeloCheck ;;
+		w) START_CLASS=WhoisCheck ;;
+		m) START_CLASS=misc.MboxReader ;;
 	esac
 done	
 X=$((OPTIND-1))
