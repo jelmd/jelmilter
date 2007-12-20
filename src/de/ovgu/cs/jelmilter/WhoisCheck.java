@@ -57,23 +57,27 @@ public class WhoisCheck
 	private InetSocketAddress addr;
 	private static final AtomicInteger instCounter = new AtomicInteger();
 	private String name;
+	private String[] prefix;
 
 	/**
 	 * Create a new Instance.
 	 * @param serverPort	server:port, whereby <var>server</var> is the 
 	 * 		hostname or IP-Address and <var>port</var> the port of the whois-spam
-	 * 		server to ask.
+	 * 		server to ask. Optionally it might be folloewd by a comma separated 
+	 * 		list of hostname prefixes, which should be considered to be spam
+	 * 		hosts.
 	 */
 	public WhoisCheck(String serverPort) {
 		if (serverPort == null) {
 			throw new IllegalArgumentException("whois-spam server address and port required");
 		}
-		int idx = serverPort.indexOf(':');
+		String[] params = serverPort.split(",");
+		int idx = params[0].indexOf(':');
 		if (idx == -1) {
 			throw new IllegalArgumentException("whois-spam server:port address required");
 		}
-		String host = serverPort.substring(0, idx);
-		String tmp = serverPort.substring(idx+1);
+		String host = params[0].substring(0, idx);
+		String tmp = params[0].substring(idx+1);
 		int aPort = -1;
 		try {
 			aPort = Integer.parseInt(tmp, 10);
@@ -84,18 +88,25 @@ public class WhoisCheck
 		if (addr == null || addr.isUnresolved()) {
 			throw new IllegalArgumentException("Invalid host/ip '" + tmp + "'");
 		}
+		if (params.length > 1) {
+			prefix = new String[params.length-1];
+			System.arraycopy(params, 1, prefix, 0, params.length-1);
+		}
 		name = "WhoisCheck " + instCounter.getAndIncrement();
 	}
 
 	/**
 	 * Create a new Instance.
 	 * @param addr	the socket of the whois-spam to use
+	 * @param prefix	a list of hostname prefixes, which are considered to be 
+	 * 		spam hosts 
 	 */
-	public WhoisCheck(InetSocketAddress addr) {
+	public WhoisCheck(InetSocketAddress addr, String[] prefix) {
 		if (addr == null || addr.isUnresolved()) {
 			throw new IllegalArgumentException("Invalid address/port");
 		}
 		this.addr = addr;
+		this.prefix = prefix;
 		name = "WhoisCheck " + instCounter.getAndIncrement();
 	}
 
@@ -120,7 +131,7 @@ public class WhoisCheck
 	 */
 	@Override
 	public MailFilter getInstance() {
-		return new WhoisCheck(addr);
+		return new WhoisCheck(addr, prefix);
 	}
 
 	/**
@@ -375,17 +386,29 @@ public class WhoisCheck
 				log.debug("method()", e);
 			}
 		}
+		Packet p = null;
+		HashMap<String,URI> map = new HashMap<String,URI>();
 		if (list.size() > 0) {
-			HashMap<String,URI> map = new HashMap<String,URI>();
-			boolean kanaweb = false;
 			for (URI uri : list) {
 				String host = uri.getHost();
-				if (!host.startsWith("kanaweb")) {
+				if (prefix != null) {
+					for (int i=prefix.length-1; i >= 0; i--) {
+						if (host.startsWith(prefix[i])) {
+							p = new ReplyPacket(550, "5.7.1", 
+								"Rejecting spam host");
+							log.info("host prefix match: " + host);
+							break;
+						}
+					}
+				}
+				if (p == null) {
 					map.put(host, uri);
 				} else {
-					kanaweb = true;
+					break;
 				}
 			}
+		}
+		if (p == null) {
 			StringBuilder buf = new StringBuilder();
 			for (String host : map.keySet()) {
 				buf.append(host).append(',');
@@ -398,28 +421,27 @@ public class WhoisCheck
 					if (res[i].length() < 1) {
 						continue;
 					}
-					ReplyPacket p = null;
 					char c = res[i].charAt(0);
 					if (c == 'A' || c == 'B' || c == 'F') {
 						p = new ReplyPacket(550, "5.7.1", 
 							"Rejecting spam [" + c + "]");
+						log.info(res[i]);
+						break;
 					} else if (c == 'T' || c == 'E' || c == 'N') {
 						p = new ReplyPacket(451, "4.7.1", 
 							"Rejecting spam [" + c + "]");
-					} else if (kanaweb) {
-						p = new ReplyPacket(550, "5.7.1", 
-							"Rejecting kanaweb spam");
-					}
-					if (p != null) {
 						log.info(res[i]);
-						ArrayList<Packet> rlist = new ArrayList<Packet>();
-						rlist.add(p);
-						return rlist;
+						break;
 					}
 					// whitelisted domain is not sufficient for accept since
 					// might be injected/faked as well
 				}
 			}
+		}
+		if (p != null) {
+			ArrayList<Packet> rlist = new ArrayList<Packet>();
+			rlist.add(p);
+			return rlist;
 		}
 		return null;
 	}
