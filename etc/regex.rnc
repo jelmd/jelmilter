@@ -5,6 +5,10 @@ start =
 		# one may use this ID to configure several regex filters, which use this ID
 		# as their statName and thus different stats counter
 		attribute id { xsd:NMTOKEN }?,
+		# max. size of a message, which should be scanned, i.e. if a message is
+		# bigger than maxsize, no rule will be applied and no match returned.
+		# If no maxsize is given, it implies no upper limits.
+		attribute maxsize { xsd:integer }?,
 		# a single regex rule
 		element rule {
 			# used, when matches are logged

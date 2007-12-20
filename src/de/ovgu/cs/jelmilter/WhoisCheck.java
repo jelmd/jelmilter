@@ -408,7 +408,7 @@ public class WhoisCheck
 				}
 			}
 		}
-		if (p == null) {
+		if (p == null && map.size() > 0) {
 			StringBuilder buf = new StringBuilder();
 			for (String host : map.keySet()) {
 				buf.append(host).append(',');

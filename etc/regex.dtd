@@ -2,6 +2,7 @@
 
 <!ELEMENT regex (rule)+>
 <!ATTLIST regex
+  maxsize CDATA #IMPLIED
   id NMTOKEN #IMPLIED>
 
 <!-- a single regex rule -->

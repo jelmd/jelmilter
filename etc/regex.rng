@@ -8,6 +8,11 @@
 					<data type="NMTOKEN"/>
 				</attribute>
 			</optional>
+			<optional>
+				<attribute name="maxsize">
+					<data type="integer"/>
+				</attribute>
+			</optional>
 			<oneOrMore>
 				<element name="rule">
 					<optional>
