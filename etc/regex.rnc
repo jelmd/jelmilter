@@ -1,0 +1,85 @@
+default namespace = ""
+
+start =
+	element regex {
+		# one may use this ID to configure several regex filters, which use this ID
+		# as their statName and thus different stats counter
+		attribute id { xsd:NMTOKEN }?,
+		# a single regex rule
+		element rule {
+			# used, when matches are logged
+			attribute id { xsd:NMTOKEN }?,
+			# if onmatch is "accept" and force is set to "true", it instructs
+			# milter4j to use this decision as final, i.e. doesn't process any
+			# any other filters and sends the accept packet immediately back to
+			# the MTA
+			attribute force { xsd:boolean }?,
+			# what to do with the mail, if a rule matches, i.e. returns "true"
+			attribute onmatch { "accept" | "reject" | "discard" | "tempfail" },
+			# the reply message to send, if onmatch is set to "reject" (otherwise
+			# this element is ignored). If not specified and onmatch is set 
+			# to "reject", "554 5.7.1 rejecting command" will be send back.
+			element msg {
+				# SMTP status code 4xx | 5xx
+				attribute reply { xsd:integer },
+				# Extended status code 4.x.x | 5.x.x
+				attribute status { xsd:NMTOKEN },
+				# the message to send
+				text
+			}?,
+			(or | and)
+		}+
+	}
+# combine the result of all rules with OR logic. Shortcuts will be used, i.e.
+# if a rule returns "true", the result gets returned immediately - no further
+# rules will be evaluated.
+or =
+	element or {
+		# informational
+		attribute id { xsd:NMTOKEN }?,
+		# if "true", negate the outcome of this rule before returning it
+		attribute not { xsd:boolean }?,
+		(and | or | find | match)*
+	}
+# combine the result of all rules with AND logic. Shortcuts will be used, i.e.
+# if a rule returns "false", the result gets returned immediately - no further
+# rules will be evaluated.
+and =
+	element and {
+		# informational
+		attribute id { xsd:NMTOKEN }?,
+		# if "true", negate the outcome of this rule before returning it
+		attribute not { xsd:boolean }?,
+		(and | or | find | match)*
+	}
+# find a text in the source, which matches the given regular expression
+match =
+	element match {
+		# if set, RegexCheck will log an info message on match using this ID
+		attribute id { xsd:NMTOKEN }?,
+		# if "true", negate the outcome of this rule before returning it
+		attribute not { xsd:boolean }?,
+		# If src is set to "header", name will be used as the name of the header
+		# to lookup and apply the given regex to its value. If name is not set, 
+		# the given regex will be applied to all headers.
+		# If src is set to "body", type might be set to a comma separated list
+		# of mimetypes (e.g. "text/plain,text/html" or "text/"). In this case,
+		# the regex will be applied to message parts with a matching mime type.
+		# If type is not specified, "text/" is assumed as default.
+		# If src is set to any value, these attributes are ignored.
+		(attribute name { text } | attribute type { text })?,
+		# Determines, to which section of the mail the regex should be applied.
+		attribute src { "mail_from" | "rcpt_to" | "header" | "body" },
+		# the regular expression (java Pattern syntax) to apply 
+		text
+	}
+# analog to match, however it tries to find the given text literally in the
+# specified source
+find =
+	element find {
+		attribute id { xsd:NMTOKEN }?,
+		attribute not { xsd:boolean }?,
+		(attribute name { text } | attribute type { text })?,
+		attribute src { "mail_from" | "rcpt_to" | "header" | "body" },
+		text
+	}

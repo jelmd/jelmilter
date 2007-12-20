@@ -1,0 +1,69 @@
+<?xml encoding="ISO-8859-1"?>
+
+<!ELEMENT regex (rule)+>
+<!ATTLIST regex
+  id NMTOKEN #IMPLIED>
+
+<!-- a single regex rule -->
+
+<!ELEMENT rule (msg?,(or|and))>
+<!ATTLIST rule
+  id NMTOKEN #IMPLIED
+  force (true|false) "false"
+  onmatch (accept|reject|discard|tempfail) #REQUIRED>
+
+<!--
+the reply message to send, if onmatch is set to "reject" (otherwise
+this element is ignored). If not specified and onmatch is set 
+to "reject", "554 5.7.1 rejecting command" will be send back.
+-->
+
+<!ELEMENT msg (#PCDATA)>
+<!ATTLIST msg
+  reply CDATA #REQUIRED
+  status NMTOKEN #REQUIRED>
+
+<!--
+combine the result of all rules with OR logic. Shortcuts will be used, i.e.
+if a rule returns "true", the result gets returned immediately - no further
+rules will be evaluated.
+-->
+
+<!ELEMENT or (and|or|find|match)*>
+<!ATTLIST or
+  id NMTOKEN #IMPLIED
+  not (true|false) "false">
+
+<!--
+combine the result of all rules with AND logic. Shortcuts will be used, i.e.
+if a rule returns "false", the result gets returned immediately - no further
+rules will be evaluated.
+-->
+
+<!ELEMENT and (and|or|find|match)*>
+<!ATTLIST and
+  id NMTOKEN #IMPLIED
+  not (true|false) "false">
+
+<!-- find a text in the source, which matches the given regular expression -->
+
+<!ELEMENT match (#PCDATA)>
+<!ATTLIST match
+  id NMTOKEN #IMPLIED
+  not (true|false) "false"
+  name CDATA #IMPLIED
+  type CDATA #IMPLIED
+  src (mail_from|rcpt_to|header|body) #REQUIRED>
+
+<!--
+analog to match, however it tries to find the given text literally in the
+specified source
+-->
+
+<!ELEMENT find (#PCDATA)>
+<!ATTLIST find
+  id NMTOKEN #IMPLIED
+  not (true|false) "false"
+  name CDATA #IMPLIED
+  type CDATA #IMPLIED
+  src (mail_from|rcpt_to|header|body) #REQUIRED>

@@ -1,0 +1,152 @@
+<?xml version="1.0" encoding="ISO-8859-1"?>
+<grammar ns="" xmlns="http://relaxng.org/ns/structure/1.0"
+	datatypeLibrary="http://www.w3.org/2001/XMLSchema-datatypes">
+	<start>
+		<element name="regex">
+			<optional>
+				<attribute name="id">
+					<data type="NMTOKEN"/>
+				</attribute>
+			</optional>
+			<oneOrMore>
+				<element name="rule">
+					<optional>
+						<attribute name="id">
+							<data type="NMTOKEN"/>
+						</attribute>
+					</optional>
+					<optional>
+						<attribute name="force">
+							<data type="boolean"/>
+						</attribute>
+					</optional>
+					<attribute name="onmatch">
+						<choice>
+							<value>accept</value>
+							<value>reject</value>
+							<value>discard</value>
+							<value>tempfail</value>
+						</choice>
+					</attribute>
+					<optional>
+						<element name="msg">
+							<attribute name="reply">
+								<data type="integer"/>
+							</attribute>
+							<attribute name="status">
+								<data type="NMTOKEN"/>
+							</attribute>
+							<text/>
+						</element>
+					</optional>
+					<choice>
+						<ref name="or"/>
+						<ref name="and"/>
+					</choice>
+				</element>
+			</oneOrMore>
+		</element>
+	</start>
+	<define name="or">
+		<element name="or">
+			<optional>
+				<attribute name="id">
+					<data type="NMTOKEN"/>
+				</attribute>
+			</optional>
+			<optional>
+				<attribute name="not">
+					<data type="boolean"/>
+				</attribute>
+			</optional>
+			<zeroOrMore>
+				<choice>
+					<ref name="and"/>
+					<ref name="or"/>
+					<ref name="find"/>
+					<ref name="match"/>
+				</choice>
+			</zeroOrMore>
+		</element>
+	</define>
+	<define name="and">
+		<element name="and">
+			<optional>
+				<attribute name="id">
+					<data type="NMTOKEN"/>
+				</attribute>
+			</optional>
+			<optional>
+				<attribute name="not">
+					<data type="boolean"/>
+				</attribute>
+			</optional>
+			<zeroOrMore>
+				<choice>
+					<ref name="and"/>
+					<ref name="or"/>
+					<ref name="find"/>
+					<ref name="match"/>
+				</choice>
+			</zeroOrMore>
+		</element>
+	</define>
+	<define name="match">
+		<element name="match">
+			<optional>
+				<attribute name="id">
+					<data type="NMTOKEN"/>
+				</attribute>
+			</optional>
+			<optional>
+				<attribute name="not">
+					<data type="boolean"/>
+				</attribute>
+			</optional>
+			<optional>
+				<choice>
+					<attribute name="name"/>
+					<attribute name="type"/>
+				</choice>
+			</optional>
+			<attribute name="src">
+				<choice>
+					<value>mail_from</value>
+					<value>rcpt_to</value>
+					<value>header</value>
+					<value>body</value>
+				</choice>
+			</attribute>
+			<text/>
+		</element>
+	</define>
+	<define name="find">
+		<element name="find">
+			<optional>
+				<attribute name="id">
+					<data type="NMTOKEN"/>
+				</attribute>
+			</optional>
+			<optional>
+				<attribute name="not">
+					<data type="boolean"/>
+				</attribute>
+			</optional>
+			<optional>
+				<choice>
+					<attribute name="name"/>
+					<attribute name="type"/>
+				</choice>
+			</optional>
+			<attribute name="src">
+				<choice>
+					<value>mail_from</value>
+					<value>rcpt_to</value>
+					<value>header</value>
+					<value>body</value>
+				</choice>
+			</attribute>
+			<text/>
+		</element>
+	</define>
+</grammar>
