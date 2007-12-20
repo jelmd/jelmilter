@@ -69,6 +69,9 @@ public class Rule {
 	public boolean eval(String[] from, String[] rcpts, 
 		HashMap<String,String> macros, List<Header> headers, Mail mail)
 	{
+		if (find == null && pattern == null) {
+			return not ? true : false;
+		}
 		boolean res = false;
 		if (isSimple()) {
 			switch (source) {
@@ -115,10 +118,21 @@ public class Rule {
 			return not ? true : false;
 		}
 		boolean found = false;
-		for (int i=from.length-1; i >= 0; i--) {
-			if (from[i].indexOf(find) != -1) {
-				found = true;
-				break;
+		if (find != null) {
+			for (int i=from.length-1; i >= 0; i--) {
+				if (from[i].indexOf(find) != -1) {
+					found = true;
+					break;
+				}
+			}
+		} else {
+			Matcher m = pattern.matcher("");
+			for (int i=from.length-1; i >= 0; i--) {
+				m.reset(from[i]);
+				if (m.find()) {
+					found = true;
+					break;
+				}
 			}
 		}
 		return not ? !found : found;
@@ -129,10 +143,21 @@ public class Rule {
 			return not ? true : false;
 		}
 		boolean found = false;
-		for (int i=to.length-1; i >= 0; i--) {
-			if (to[i].indexOf(find) != -1) {
-				found = true;
-				break;
+		if (find != null) {
+			for (int i=to.length-1; i >= 0; i--) {
+				if (to[i].indexOf(find) != -1) {
+					found = true;
+					break;
+				}
+			}
+		} else {
+			Matcher m = pattern.matcher("");
+			for (int i=to.length-1; i >= 0; i--) {
+				m.reset(to[i]);
+				if (m.find()) {
+					found = true;
+					break;
+				}
 			}
 		}
 		return not ? !found : found;
