@@ -10,7 +10,7 @@
 	<!-- new features, but backward compatible -->
 	<property name="version.minor" value="0"/>
 	<!-- developer built or maintainance relase or bug fix number -->
-	<property name="version.tiny"  value="0"/>
+	<property name="version.tiny"  value="1"/>
 	<!-- status: alpha | beta | gamma | final | "" ; "" means final -->
 	<property name="version.note"  value=""/>
 
