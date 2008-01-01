@@ -14,6 +14,7 @@ import java.net.UnknownHostException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.EnumSet;
+import java.util.HashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import org.slf4j.Logger;
@@ -41,20 +42,34 @@ public class HeloCheck
 	private String name;
 	private InetAddress clientAddress;
 	private boolean strict;
+	private boolean delayCheck;
 	private String[] whitelist;
 	private String reverse;
+	private Packet reply;
+	private EnumSet<Type> cmds;
 
 	/**
 	 * Create a new instance.
-	 * If the param starts with {@code strict}, connecting clients need to
-	 * HELO with a hostname, which matches their IP-Address. It might be 
-	 * followed by a list of domains or hostnames, for which the helo check
-	 * should be skipped (match uses *.endsWith(domain).
+	 * The argument is a list of parameters separate by a {@code :} (colon).
+	 * If an argument is {@code strict}, connecting clients need to
+	 * HELO with a hostname, which matches their IP-Address or the MX host
+	 * listed for this client.
+	 * <p>
+	 * If an argument is {@code delayCheck}, the Connect and Helo checks are done
+	 * as usual, however if the yield to a reject packet, it will be only sent,
+	 * if the user is not authenticated. So, if this feature is enabled,
+	 * possible rejects are delayed until {@link #doMailFrom(String[])} gets
+	 * called.
+	 * <p>
+	 * Any other argument gets interpreted as a comma separated list of domains 
+	 * or hostnames, for which the helo check should be skipped (match uses 
+	 * *.endsWith(domain).
 	 * 
-	 * @param params [strict:]domain,...,domain
+	 * @param params [strict:][delayCheck:][domain,...,domain]
 	 */
 	public HeloCheck(String params) {
 		name = "HeloCheck " + instCounter.getAndIncrement();
+		cmds = EnumSet.of(Type.CONNECT, Type.HELO);
 		reconfigure(params);
 	}
 
@@ -73,6 +88,7 @@ public class HeloCheck
 	public void doQuit() {
 		clientAddress = null;
 		reverse = null;
+		reply = null;
 	}
 
 	/**
@@ -82,6 +98,7 @@ public class HeloCheck
 	public MailFilter getInstance() {
 		HeloCheck hc = new HeloCheck(null);
 		hc.strict = strict;
+		hc.delayCheck = delayCheck;
 		hc.whitelist = whitelist;
 		return hc;
 	}
@@ -99,28 +116,38 @@ public class HeloCheck
 	 */
 	@Override
 	public boolean reconfigure(String params) {
+		whitelist = null;
+		strict = false;
+		delayCheck = false;
+		reply = null;
 		if (params != null) {
-			strict = params.startsWith("strict");
-			String doms = params;
-			if (strict) {
-				doms = params.length() > "strict".length() +1
-					? params.substring("strict".length()+1)
-					: "";
-			}
-			String[] tmp = doms.split(",");
-			ArrayList<String> hnames = new ArrayList<String>();
-			for (int i=0; i < tmp.length; i++) {
-				String t = tmp[i].trim();
-				if (t.length() != 0) {
-					hnames.add(t);
+			String[] args = params.split(":");
+			for (int i=args.length-1; i >= 0; i--) {
+				if (args[i].equalsIgnoreCase("strict")) {
+					strict = true;
+				} else if (args[i].equalsIgnoreCase("delayCheck")) {
+					delayCheck = true;
+				} else {
+					String[] tmp = args[i].split(",");
+					ArrayList<String> hnames = new ArrayList<String>();
+					for (int k=0; k < tmp.length; k++) {
+						String t = tmp[k].trim();
+						if (t.length() != 0) {
+							hnames.add(t);
+						}
+					}
+					whitelist = hnames.size() > 0 
+						? hnames.toArray(new String[hnames.size()])
+						: null;
 				}
 			}
-			whitelist = hnames.size() > 0 
-				? hnames.toArray(new String[hnames.size()])
-				: null;
+		}
+		if (delayCheck) {
+			cmds.add(Type.MAIL);
+			cmds.add(Type.MACRO);
 		} else {
-			whitelist = null;
-			strict = false;
+			cmds.remove(Type.MAIL);
+			cmds.remove(Type.MACRO);
 		}
 		return true;
 	}
@@ -130,9 +157,31 @@ public class HeloCheck
 	 */
 	@Override
 	public EnumSet<Type> getCommands() {
-		return EnumSet.of(Type.CONNECT, Type.HELO);
+		return cmds;
 	}
 	
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public void doMacros(HashMap<String,String> allMacros, 
+		HashMap<String,String> newMacros) 
+	{
+		if (delayCheck && newMacros.containsKey("{auth_authen}")) {
+			// this macro comes always after connect and helo checks
+			reply = null;
+		}
+		return;
+	}
+
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public Packet doMailFrom(String[] from) {
+		return reply;
+	}
+
 	/**
 	 * {@inheritDoc}
 	 */
@@ -184,7 +233,11 @@ public class HeloCheck
 	@Override
 	public Packet doHelo(String domain) {
 		if (reverse != null) {
-			return new ReplyPacket(554, "5.7.1", "Fix reverse DNS for " + reverse);
+			reply = new ReplyPacket(554, "5.7.1", "Fix reverse DNS for " + reverse);
+			if (delayCheck) {
+				return null;
+			}
+			return reply;
 		}
 		if (whitelist != null) {
 			for (int i=0; i < whitelist.length; i++) {
@@ -241,9 +294,13 @@ public class HeloCheck
 							}
 						}
 						if (!match && !domainIsMX(domain, clientAddress)) {
-							return new ReplyPacket(554, "5.7.1", 
+							reply = new ReplyPacket(554, "5.7.1", 
 								"MTA is not " + domain 
 								+ " - fix reverse DNS/MTA configuration");
+							if (delayCheck) {
+								return null;
+							}
+							return reply;
 						}
 					}
 				}
@@ -252,9 +309,14 @@ public class HeloCheck
 			a = null;
 			log.debug(e.getLocalizedMessage());
 		}
-		return a == null
-			? new ReplyPacket(554, "5.7.1", "Protocol violation")
-			: new ContinuePacket();
+		if (a == null) {
+			reply = new ReplyPacket(554, "5.7.1", "Protocol violation");
+			if (delayCheck) {
+				return null;
+			}
+			return reply;
+		}
+		return null;
 	}
 	
 	/**

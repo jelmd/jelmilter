@@ -255,6 +255,29 @@ public class RegexCheck
 		return eval(Source.MAIL_FROM, from, null, null, null, null);
 	}
 	
+	private String getLogInfo(HashMap<String, String> macros) {
+		if (macros == null) {
+			return "to='' from='' via='' ";
+		}
+		StringBuilder buf = new StringBuilder("to='");
+		String tmp = macros.get("{rcpt_addr}");
+		if ( tmp != null) {
+			buf.append(tmp);
+		}
+		buf.append("' from='");
+		tmp = macros.get("{mail_addr}");
+		if ( tmp != null) {
+			buf.append(tmp);
+		}
+		buf.append("' via='");
+		tmp = macros.get("_");
+		if ( tmp != null) {
+			buf.append(tmp);
+		}
+		buf.append("'  ");
+		return buf.toString();
+	}
+
 	private Packet eval(Source current, String[] from, String[] rcpts, 
 		HashMap<String,String> macros, List<Header> headers, Mail mail)
 	{
@@ -269,7 +292,7 @@ public class RegexCheck
 				Packet p = ruleSet[currentRuleIdx]
 				    .eval(from, rcpts, macros, headers, mail);
 				if (p != null && p.getType() != de.ovgu.cs.milter4j.reply.Type.CONTINUE) {
-					log.info("RuleSet \"{}\" matched", 
+					log.info(getLogInfo(macros) + "RuleSet \"{}\" matched", 
 						ruleSet[currentRuleIdx].getId());
 					return p;
 				}
@@ -364,6 +387,7 @@ public class RegexCheck
 			}
 		}
 		maxSize = x < 0 ? -1 : x;
+		log.info("maxsize set to " + maxSize);
 		statName = in.getAttributeValue(null, "id");
 		if (statName != null) {
 			statName = statName.trim();

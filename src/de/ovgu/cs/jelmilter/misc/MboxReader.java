@@ -271,7 +271,7 @@ public class MboxReader {
 		TreeMap<String, TreeSet<String>> set = new TreeMap<String,TreeSet<String>>();
 		log.info("Found " + uriList.size() + " URLs");
 		StringBuilder buf = new StringBuilder();
-		Whois whois = new Whois();
+		Whois whois = new Whois(null);
 		for (URI uri : uriList) {
 			String host = whois.getTldNormalizedDomain(uri.getHost());
 			buf.append(host);

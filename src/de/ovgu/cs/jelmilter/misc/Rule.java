@@ -69,11 +69,11 @@ public class Rule {
 	public boolean eval(String[] from, String[] rcpts, 
 		HashMap<String,String> macros, List<Header> headers, Mail mail)
 	{
-		if (find == null && pattern == null) {
-			return not ? true : false;
-		}
 		boolean res = false;
 		if (isSimple()) {
+			if (find == null && pattern == null) {
+				return not ? true : false;
+			}
 			switch (source) {
 				case MAIL_FROM:
 					res = mailFrom(from);

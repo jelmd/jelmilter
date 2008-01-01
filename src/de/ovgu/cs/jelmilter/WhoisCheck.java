@@ -40,6 +40,7 @@ import de.ovgu.cs.milter4j.MailFilter;
 import de.ovgu.cs.milter4j.cmd.Type;
 import de.ovgu.cs.milter4j.reply.Packet;
 import de.ovgu.cs.milter4j.reply.ReplyPacket;
+import de.ovgu.cs.milter4j.reply.TempFailPacket;
 import de.ovgu.cs.milter4j.util.Mail;
 import de.ovgu.cs.milter4j.util.Misc;
 
@@ -359,6 +360,29 @@ public class WhoisCheck
 		}
 	}
 
+	private String getLogInfo(HashMap<String, String> macros) {
+		if (macros == null) {
+			return "to='' from='' via='' ";
+		}
+		StringBuilder buf = new StringBuilder("to='");
+		String tmp = macros.get("{rcpt_addr}");
+		if ( tmp != null) {
+			buf.append(tmp);
+		}
+		buf.append("' from='");
+		tmp = macros.get("{mail_addr}");
+		if ( tmp != null) {
+			buf.append(tmp);
+		}
+		buf.append("' via='");
+		tmp = macros.get("_");
+		if ( tmp != null) {
+			buf.append(tmp);
+		}
+		buf.append("'  ");
+		return buf.toString();
+	}
+
 	/**
 	 * Scan the message for URLs, collect them and submit them to the configured
 	 * whois-spam server.
@@ -396,7 +420,7 @@ public class WhoisCheck
 						if (host.startsWith(prefix[i])) {
 							p = new ReplyPacket(550, "5.7.1", 
 								"Rejecting spam host");
-							log.info("host prefix match: " + host);
+							log.info(getLogInfo(macros) + "host prefix match: " + host);
 							break;
 						}
 					}
@@ -425,12 +449,16 @@ public class WhoisCheck
 					if (c == 'A' || c == 'B' || c == 'F') {
 						p = new ReplyPacket(550, "5.7.1", 
 							"Rejecting spam [" + c + "]");
-						log.info(res[i]);
+						log.info(getLogInfo(macros), res[i]);
 						break;
 					} else if (c == 'T' || c == 'E' || c == 'N') {
 						p = new ReplyPacket(451, "4.7.1", 
 							"Rejecting spam [" + c + "]");
-						log.info(res[i]);
+						log.info(getLogInfo(macros) + res[i]);
+						break;
+					} else if (c == 'X') {
+						p = new TempFailPacket();
+						log.info(getLogInfo(macros) + res[i]);
 						break;
 					}
 					// whitelisted domain is not sufficient for accept since
