@@ -100,6 +100,7 @@ public class HeloCheck
 		hc.strict = strict;
 		hc.delayCheck = delayCheck;
 		hc.whitelist = whitelist;
+		hc.cmds = cmds;
 		return hc;
 	}
 
@@ -125,8 +126,10 @@ public class HeloCheck
 			for (int i=args.length-1; i >= 0; i--) {
 				if (args[i].equalsIgnoreCase("strict")) {
 					strict = true;
+					log.info("Using strict mode");
 				} else if (args[i].equalsIgnoreCase("delayCheck")) {
 					delayCheck = true;
+					log.info("Using delay check");
 				} else {
 					String[] tmp = args[i].split(",");
 					ArrayList<String> hnames = new ArrayList<String>();
