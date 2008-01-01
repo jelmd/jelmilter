@@ -40,7 +40,6 @@ import de.ovgu.cs.milter4j.MailFilter;
 import de.ovgu.cs.milter4j.cmd.Type;
 import de.ovgu.cs.milter4j.reply.Packet;
 import de.ovgu.cs.milter4j.reply.ReplyPacket;
-import de.ovgu.cs.milter4j.reply.TempFailPacket;
 import de.ovgu.cs.milter4j.util.Mail;
 import de.ovgu.cs.milter4j.util.Misc;
 
@@ -457,7 +456,8 @@ public class WhoisCheck
 						log.info(getLogInfo(macros) + res[i]);
 						break;
 					} else if (c == 'X') {
-						p = new TempFailPacket();
+						p = new ReplyPacket(451, "4.7.1", 
+							"Domain infos currently not available [" + c + "]");
 						log.info(getLogInfo(macros) + res[i]);
 						break;
 					}
