@@ -448,7 +448,7 @@ public class WhoisCheck
 					if (c == 'A' || c == 'B' || c == 'F') {
 						p = new ReplyPacket(550, "5.7.1", 
 							"Rejecting spam [" + c + "]");
-						log.info(getLogInfo(macros), res[i]);
+						log.info(getLogInfo(macros) + res[i]);
 						break;
 					} else if (c == 'T' || c == 'E' || c == 'N') {
 						p = new ReplyPacket(451, "4.7.1", 

@@ -47,6 +47,8 @@ public class HeloCheck
 	private String reverse;
 	private Packet reply;
 	private EnumSet<Type> cmds;
+	private String from;
+	private String to;
 
 	/**
 	 * Create a new instance.
@@ -58,8 +60,8 @@ public class HeloCheck
 	 * If an argument is {@code delayCheck}, the Connect and Helo checks are done
 	 * as usual, however if the yield to a reject packet, it will be only sent,
 	 * if the user is not authenticated. So, if this feature is enabled,
-	 * possible rejects are delayed until {@link #doMailFrom(String[])} gets
-	 * called.
+	 * possible rejects are delayed until {@link #doRecipientTo(String[])} gets
+	 * called and rejects are logged at info level.
 	 * <p>
 	 * Any other argument gets interpreted as a comma separated list of domains 
 	 * or hostnames, for which the helo check should be skipped (match uses 
@@ -78,7 +80,8 @@ public class HeloCheck
 	 */
 	@Override
 	public void doAbort() {
-		// nothing to do
+		from = null;
+		to = null;
 	}
 
 	/**
@@ -89,6 +92,8 @@ public class HeloCheck
 		clientAddress = null;
 		reverse = null;
 		reply = null;
+		from = null;
+		to = null;
 	}
 
 	/**
@@ -130,7 +135,7 @@ public class HeloCheck
 				} else if (args[i].equalsIgnoreCase("delayCheck")) {
 					delayCheck = true;
 					log.info("Using delay check");
-				} else {
+				} else if (args[i].length() != 0) {
 					String[] tmp = args[i].split(",");
 					ArrayList<String> hnames = new ArrayList<String>();
 					for (int k=0; k < tmp.length; k++) {
@@ -146,10 +151,10 @@ public class HeloCheck
 			}
 		}
 		if (delayCheck) {
-			cmds.add(Type.MAIL);
+			cmds.add(Type.RCPT);
 			cmds.add(Type.MACRO);
 		} else {
-			cmds.remove(Type.MAIL);
+			cmds.remove(Type.RCPT);
 			cmds.remove(Type.MACRO);
 		}
 		return true;
@@ -170,18 +175,48 @@ public class HeloCheck
 	public void doMacros(HashMap<String,String> allMacros, 
 		HashMap<String,String> newMacros) 
 	{
-		if (delayCheck && newMacros.containsKey("{auth_authen}")) {
-			// this macro comes always after connect and helo checks
-			reply = null;
+		if (delayCheck) {
+			if (newMacros.containsKey("{auth_authen}") && reply != null) {
+				// this macro comes always after connect and helo checks
+				if (log.isDebugEnabled()) {
+					log.debug("Clearing " + reply.toString() + " for " + 
+						newMacros.get("{auth_authen}"));
+				}
+				reply = null;
+			}
+			String tmp = newMacros.get("{rcpt_addr}");
+			if (tmp != null) {
+				to = tmp;
+			} else {
+				tmp = newMacros.get("{mail_addr}");
+				if (tmp != null) {
+					from = tmp;
+				}
+			}
 		}
-		return;
+	}
+
+	private String getLogInfo() {
+		StringBuilder buf = new StringBuilder("to='");
+		if ( to != null) {
+			buf.append(to);
+		}
+		buf.append("' from='");
+		if ( from != null) {
+			buf.append(from);
+		}
+		buf.append("'  ");
+		return buf.toString();
 	}
 
 	/**
 	 * {@inheritDoc}
 	 */
 	@Override
-	public Packet doMailFrom(String[] from) {
+	public Packet doRecipientTo(String[] recipient) {
+		if (reply != null && log.isInfoEnabled()) {
+			log.info(getLogInfo() + reply.toString());
+		}
 		return reply;
 	}
 
@@ -252,7 +287,7 @@ public class HeloCheck
 		InetAddress[] a = null;
 		try {
 			if (domain.startsWith("[") && domain.endsWith("]")) {
-				// das beknackte thunderbird sagt EHLO [IP] - brainfuck
+				// lt. RFC nur so erlaubt "EHLO [IP]"
 				domain = domain.substring(1, domain.length()-1);
 				InetAddress x = InetAddress.getByName(domain);
 				domain = x.getCanonicalHostName();
@@ -323,13 +358,13 @@ public class HeloCheck
 	}
 	
 	/**
-	 * @param args	none
+	 * @param args	{[strict:][delayCheck:][(FQHN|FQDN,)*]} clientIP helo_arg
 	 * @throws UnknownHostException 
 	 */
 	public static void main(String[] args) throws UnknownHostException {
 		if (args.length < 3) {
 			System.err.println("Usage: java -cp HeloCheck "
-				+ "{[strict][:(FQHN|FQDN,)*]} clientIP helo_arg");
+				+ "{[strict:][delayCheck:][(FQHN|FQDN,)*]} clientIP helo_arg");
 			System.exit(1);
 		}
 		HeloCheck h = new HeloCheck(args[0]);
