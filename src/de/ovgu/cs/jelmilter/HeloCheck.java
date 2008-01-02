@@ -44,11 +44,14 @@ public class HeloCheck
 	private boolean strict;
 	private boolean delayCheck;
 	private String[] whitelist;
-	private String reverse;
 	private Packet reply;
 	private EnumSet<Type> cmds;
 	private String from;
 	private String to;
+	private String ehelo;
+	private String clientFQHN;
+	private String clientIP;
+	
 
 	/**
 	 * Create a new instance.
@@ -90,10 +93,13 @@ public class HeloCheck
 	@Override
 	public void doQuit() {
 		clientAddress = null;
-		reverse = null;
+		clientIP = null;
 		reply = null;
 		from = null;
 		to = null;
+		ehelo = null;
+		clientFQHN = null;
+		clientIP = null;
 	}
 
 	/**
@@ -205,6 +211,22 @@ public class HeloCheck
 		if ( from != null) {
 			buf.append(from);
 		}
+		buf.append("' ip='");
+		if (clientIP != null) {
+			buf.append(clientIP);
+		} else if (clientAddress != null) {
+			buf.append(clientAddress.getHostAddress());
+		}
+		buf.append("' fqhn='");
+		if (clientFQHN != null) {
+			buf.append(clientFQHN);
+		} else if (clientAddress != null) {
+			buf.append(clientAddress.getCanonicalHostName());
+		}
+		buf.append("' ehlo='");
+		if (ehelo != null) {
+			buf.append(ehelo);
+		}
 		buf.append("'  ");
 		return buf.toString();
 	}
@@ -228,13 +250,14 @@ public class HeloCheck
 		String info) 
 	{
 		if (hostname.startsWith("[") || hostname.startsWith("IPv6:")) {
-			reverse = info;
+			clientIP = info;
 			return new ContinuePacket();
 		}
-		reverse = null;
+		clientIP = null;
 		clientAddress = null;
 		if (family == AddressFamily.INET || family == AddressFamily.INET6) {
 			try {
+				clientFQHN = hostname;
 				clientAddress = InetAddress.getByName(info);
 				log.debug("{}: client addr = {}", name, clientAddress.toString());
 			} catch (UnknownHostException e) {
@@ -270,8 +293,10 @@ public class HeloCheck
 	 */
 	@Override
 	public Packet doHelo(String domain) {
-		if (reverse != null) {
-			reply = new ReplyPacket(554, "5.7.1", "Fix reverse DNS for " + reverse);
+		ehelo = domain;
+		if (clientIP != null) {
+			reply = new ReplyPacket(554, "5.7.1", "Fix reverse DNS for " 
+				+ clientIP);
 			if (delayCheck) {
 				return null;
 			}
@@ -321,25 +346,23 @@ public class HeloCheck
 				}
 				if (a != null && (strict || domain.indexOf('.') == -1)) {
 					// HLO $hostname should match client-IP
-					if (a != null) {
-						boolean match = false;
-						byte[] ca = clientAddress.getAddress();
-						for (int i=a.length-1; i >= 0; i--) {
-							byte[] da = a[i].getAddress();
-							if (Arrays.equals(ca, da)) {
-								match = true;
-								break;
-							}
+					boolean match = false;
+					byte[] ca = clientAddress.getAddress();
+					for (int i=a.length-1; i >= 0; i--) {
+						byte[] da = a[i].getAddress();
+						if (Arrays.equals(ca, da)) {
+							match = true;
+							break;
 						}
-						if (!match && !domainIsMX(domain, clientAddress)) {
-							reply = new ReplyPacket(554, "5.7.1", 
-								"MTA is not " + domain 
-								+ " - fix reverse DNS/MTA configuration");
-							if (delayCheck) {
-								return null;
-							}
-							return reply;
+					}
+					if (!match && !domainIsMX(domain, clientAddress)) {
+						reply = new ReplyPacket(554, "5.7.1", 
+							"MTA is not " + domain 
+							+ " - fix reverse DNS/MTA configuration");
+						if (delayCheck) {
+							return null;
 						}
+						return reply;
 					}
 				}
 			}
