@@ -23,10 +23,10 @@ import org.xbill.DNS.Lookup;
 import org.xbill.DNS.MXRecord;
 import org.xbill.DNS.Record;
 
+import de.ovgu.cs.jelmilter.misc.CIDR;
 import de.ovgu.cs.milter4j.AddressFamily;
 import de.ovgu.cs.milter4j.MailFilter;
 import de.ovgu.cs.milter4j.cmd.Type;
-import de.ovgu.cs.milter4j.reply.ContinuePacket;
 import de.ovgu.cs.milter4j.reply.Packet;
 import de.ovgu.cs.milter4j.reply.ReplyPacket;
 
@@ -40,12 +40,18 @@ public class HeloCheck
 	private static final Logger log = LoggerFactory.getLogger(HeloCheck.class);
 	private static final AtomicInteger instCounter = new AtomicInteger();
 	private String name;
-	private InetAddress clientAddress;
+	
+	// config stuff
 	private boolean strict;
 	private boolean delayCheck;
-	private String[] whitelist;
-	private Packet reply;
+	private String[] ehloWhitelist;
+	private String[] fqhnWhitelist;
+	private CIDR[] ipWhiteList;
 	private EnumSet<Type> cmds;
+	
+	// state
+ 	private Packet reply;
+	private InetAddress clientAddress;
 	private String from;
 	private String to;
 	private String ehelo;
@@ -66,11 +72,19 @@ public class HeloCheck
 	 * possible rejects are delayed until {@link #doRecipientTo(String[])} gets
 	 * called and rejects are logged at info level.
 	 * <p>
-	 * Any other argument gets interpreted as a comma separated list of domains 
-	 * or hostnames, for which the helo check should be skipped (match uses 
-	 * *.endsWith(domain).
+	 * Any other argument gets interpreted as a comma separated whitelists of 
+	 * domains, hostnames or IP addresses, for which the helo check should be 
+	 * skipped. If the list starts with {@code ip=}, CIDRs are expected, which 
+	 * are matched against the clients IP address. If the list starts with
+	 * {@code fqhn=} the given Strings are compared to the client's fully 
+	 * qualified hostname (FQHN) and matches, if the FQHN ends with the given 
+	 * string. If the list starts with {@code helo=}, the given Strings are 
+	 * compared to the helo/ehlo argument, given by the client and matches, if 
+	 * the helo argument ends with the given string. NOTE: Since helo arguments
+	 * are usually faked names in spam mails, care should be taken if one uses
+	 * this type of whitelist.
 	 * 
-	 * @param params [strict:][delayCheck:][domain,...,domain]
+	 * @param params [strict:][delayCheck:][{helo|ip|fqhn}=domain,...,domain]
 	 */
 	public HeloCheck(String params) {
 		name = "HeloCheck " + instCounter.getAndIncrement();
@@ -92,9 +106,8 @@ public class HeloCheck
 	 */
 	@Override
 	public void doQuit() {
-		clientAddress = null;
-		clientIP = null;
 		reply = null;
+		clientAddress = null;
 		from = null;
 		to = null;
 		ehelo = null;
@@ -110,7 +123,9 @@ public class HeloCheck
 		HeloCheck hc = new HeloCheck(null);
 		hc.strict = strict;
 		hc.delayCheck = delayCheck;
-		hc.whitelist = whitelist;
+		hc.ehloWhitelist = ehloWhitelist;
+		hc.fqhnWhitelist = fqhnWhitelist;
+		hc.ipWhiteList = ipWhiteList;
 		hc.cmds = cmds;
 		return hc;
 	}
@@ -128,7 +143,9 @@ public class HeloCheck
 	 */
 	@Override
 	public boolean reconfigure(String params) {
-		whitelist = null;
+		ehloWhitelist = null;
+		ipWhiteList = null;
+		fqhnWhitelist = null;
 		strict = false;
 		delayCheck = false;
 		reply = null;
@@ -142,18 +159,53 @@ public class HeloCheck
 					delayCheck = true;
 					log.info("Using delay check");
 				} else if (args[i].length() != 0) {
-					String[] tmp = args[i].split(",");
-					ArrayList<String> hnames = new ArrayList<String>();
-					for (int k=0; k < tmp.length; k++) {
-						String t = tmp[k].trim();
-						if (t.length() != 0) {
-							hnames.add(t);
+					if (args[i].startsWith("helo=")) {
+						String[] tmp = args[i].substring(5).split(",");
+						ArrayList<String> hnames = new ArrayList<String>();
+						for (int k=0; k < tmp.length; k++) {
+							String t = tmp[k].trim();
+							if (t.length() != 0) {
+								hnames.add(t);
+							}
 						}
+						ehloWhitelist = hnames.size() > 0 
+							? hnames.toArray(new String[hnames.size()])
+							: null;
+					} else if (args[i].startsWith("fqhn=")) {
+						String[] tmp = args[i].substring(5).split(",");
+						ArrayList<String> hnames = new ArrayList<String>();
+						for (int k=0; k < tmp.length; k++) {
+							String t = tmp[k].trim();
+							if (t.length() != 0) {
+								hnames.add(t);
+							}
+						}
+						fqhnWhitelist = hnames.size() > 0 
+							? hnames.toArray(new String[hnames.size()])
+							: null;
+					} else if (args[i].startsWith("ip=")) {
+						String[] tmp = args[i].substring(3).split(",");
+						ArrayList<CIDR> cidrs = new ArrayList<CIDR>();
+						for (int k=0; k < tmp.length; k++) {
+							String t = tmp[k].trim();
+							if (t.length() != 0) {
+								CIDR cidr = null;
+								try {
+									cidr = new CIDR(t);
+									cidrs.add(cidr);
+								} catch (Exception e) {
+									log.warn(e.getLocalizedMessage());
+									if (log.isDebugEnabled()) {
+										log.debug("reconfigure", e);
+									}
+								}
+							}
+						}
+						ipWhiteList = cidrs.size() > 0 
+							? cidrs.toArray(new CIDR[cidrs.size()])
+							: null;
 					}
-					whitelist = hnames.size() > 0 
-						? hnames.toArray(new String[hnames.size()])
-						: null;
-				}
+				} 
 			}
 		}
 		if (delayCheck) {
@@ -249,22 +301,18 @@ public class HeloCheck
 	public Packet doConnect(String hostname, AddressFamily family, int port, 
 		String info) 
 	{
-		if (hostname.startsWith("[") || hostname.startsWith("IPv6:")) {
-			clientIP = info;
-			return new ContinuePacket();
-		}
-		clientIP = null;
+		clientIP = info;
+		clientFQHN = hostname;
 		clientAddress = null;
 		if (family == AddressFamily.INET || family == AddressFamily.INET6) {
 			try {
-				clientFQHN = hostname;
 				clientAddress = InetAddress.getByName(info);
 				log.debug("{}: client addr = {}", name, clientAddress.toString());
 			} catch (UnknownHostException e) {
 				// ignore;
 			}
 		}
-		return new ContinuePacket();
+		return null;
 	}
 
 	private boolean domainIsMX(String domain, InetAddress addr) {
@@ -294,20 +342,35 @@ public class HeloCheck
 	@Override
 	public Packet doHelo(String domain) {
 		ehelo = domain;
-		if (clientIP != null) {
+		if (ehloWhitelist != null) {
+			for (int i=0; i < ehloWhitelist.length; i++) {
+				if (domain.endsWith(ehloWhitelist[i])) {
+					return null;
+				}
+			}
+		}
+		if (fqhnWhitelist != null && clientFQHN != null) {
+			for (int i=0; i < fqhnWhitelist.length; i++) {
+				if (clientFQHN.endsWith(fqhnWhitelist[i])) {
+					return null;
+				}
+			}
+		}
+		if (ipWhiteList != null && clientAddress != null) {
+			for (int i=0; i < ipWhiteList.length; i++) {
+				if (ipWhiteList[i].contains(clientAddress)) {
+					return null;
+				}
+			}
+		}
+		if (clientFQHN.startsWith("[") || clientFQHN.startsWith("IPv6:")) {
+			// client IP address is required to resolve into a FQHN
 			reply = new ReplyPacket(554, "5.7.1", "Fix reverse DNS for " 
-				+ clientIP);
+				+ clientFQHN);
 			if (delayCheck) {
 				return null;
 			}
 			return reply;
-		}
-		if (whitelist != null) {
-			for (int i=0; i < whitelist.length; i++) {
-				if (domain.endsWith(whitelist[i])) {
-					return new ContinuePacket();
-				}
-			}
 		}
 		InetAddress[] a = null;
 		try {
