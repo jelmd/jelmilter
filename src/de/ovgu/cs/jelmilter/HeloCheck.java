@@ -46,7 +46,7 @@ public class HeloCheck
 	private boolean delayCheck;
 	private String[] ehloWhitelist;
 	private String[] fqhnWhitelist;
-	private CIDR[] ipWhiteList;
+	private CIDR[] ipWhitelist;
 	private EnumSet<Type> cmds;
 	
 	// state
@@ -125,7 +125,7 @@ public class HeloCheck
 		hc.delayCheck = delayCheck;
 		hc.ehloWhitelist = ehloWhitelist;
 		hc.fqhnWhitelist = fqhnWhitelist;
-		hc.ipWhiteList = ipWhiteList;
+		hc.ipWhitelist = ipWhitelist;
 		hc.cmds = cmds;
 		return hc;
 	}
@@ -144,7 +144,7 @@ public class HeloCheck
 	@Override
 	public boolean reconfigure(String params) {
 		ehloWhitelist = null;
-		ipWhiteList = null;
+		ipWhitelist = null;
 		fqhnWhitelist = null;
 		strict = false;
 		delayCheck = false;
@@ -201,7 +201,7 @@ public class HeloCheck
 								}
 							}
 						}
-						ipWhiteList = cidrs.size() > 0 
+						ipWhitelist = cidrs.size() > 0 
 							? cidrs.toArray(new CIDR[cidrs.size()])
 							: null;
 					}
@@ -345,6 +345,10 @@ public class HeloCheck
 		if (ehloWhitelist != null) {
 			for (int i=0; i < ehloWhitelist.length; i++) {
 				if (domain.endsWith(ehloWhitelist[i])) {
+					if (log.isInfoEnabled()) {
+						log.info(getLogInfo() +  " helo whitelist: " 
+							+ ehloWhitelist[i]);
+					}
 					return null;
 				}
 			}
@@ -352,13 +356,21 @@ public class HeloCheck
 		if (fqhnWhitelist != null && clientFQHN != null) {
 			for (int i=0; i < fqhnWhitelist.length; i++) {
 				if (clientFQHN.endsWith(fqhnWhitelist[i])) {
+					if (log.isInfoEnabled()) {
+						log.info(getLogInfo() +  " fqhn whitelist: " 
+							+ fqhnWhitelist[i]);
+					}
 					return null;
 				}
 			}
 		}
-		if (ipWhiteList != null && clientAddress != null) {
-			for (int i=0; i < ipWhiteList.length; i++) {
-				if (ipWhiteList[i].contains(clientAddress)) {
+		if (ipWhitelist != null && clientAddress != null) {
+			for (int i=0; i < ipWhitelist.length; i++) {
+				if (ipWhitelist[i].contains(clientAddress)) {
+					if (log.isInfoEnabled()) {
+						log.info(getLogInfo() +  " ip whitelist: " 
+							+ ipWhitelist[i]);
+					}
 					return null;
 				}
 			}
