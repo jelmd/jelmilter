@@ -1,10 +1,15 @@
 <?xml encoding="ISO-8859-1"?>
 
-<!ELEMENT regex (rule)+>
+<!ELEMENT regex (rule|include)+>
 <!ATTLIST regex
   maxsize CDATA #IMPLIED
   id NMTOKEN #IMPLIED>
 
+<!-- another regex file to include at this point -->
+<!ELEMENT include EMPTY)>
+<!ATTLIST include
+  file CDATA #REQUIRED>
+ 
 <!-- a single regex rule -->
 
 <!ELEMENT rule (msg?,(or|and))>

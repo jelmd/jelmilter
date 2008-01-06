@@ -1,13 +1,14 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <classpath>
-	<classpathentry kind="src" path="src"/>
+	<classpathentry excluding="logback.xml" kind="src" path="src"/>
+	<classpathentry kind="src" path="etc"/>
 	<classpathentry kind="con" path="org.eclipse.jdt.launching.JRE_CONTAINER"/>
 	<classpathentry kind="lib" path="lib/dnsjava-2.0.5.jar" sourcepath="/local/apps/javax/src/dnsjava-2.0.5-src.jar"/>
 	<classpathentry kind="lib" path="lib/logback-classic-0.9.8.jar"/>
 	<classpathentry kind="lib" path="lib/logback-core-0.9.8.jar"/>
 	<classpathentry kind="lib" path="lib/mail.jar" sourcepath="/javamail/src/java"/>
 	<classpathentry kind="lib" path="lib/slf4j-api-1.4.3.jar"/>
-	<classpathentry kind="lib" path="lib/milter4j-1.0.3.jar"/>
+	<classpathentry kind="lib" path="lib/milter4j-1.1.0.jar" sourcepath="/milter4j/src"/>
 	<classpathentry kind="lib" path="lib/whois4j-1.1.0.jar"/>
 	<classpathentry kind="output" path="build/classes"/>
 </classpath>

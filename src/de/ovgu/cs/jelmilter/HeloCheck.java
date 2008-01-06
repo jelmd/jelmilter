@@ -52,11 +52,10 @@ public class HeloCheck
 	// state
  	private Packet reply;
 	private InetAddress clientAddress;
-	private String from;
-	private String to;
 	private String ehelo;
 	private String clientFQHN;
 	private String clientIP;
+	private String whitelisted;
 	
 
 	/**
@@ -69,8 +68,8 @@ public class HeloCheck
 	 * If an argument is {@code delayCheck}, the Connect and Helo checks are done
 	 * as usual, however if the yield to a reject packet, it will be only sent,
 	 * if the user is not authenticated. So, if this feature is enabled,
-	 * possible rejects are delayed until {@link #doRecipientTo(String[])} gets
-	 * called and rejects are logged at info level.
+	 * possible rejects are delayed until {@link #doRecipientTo(String[], HashMap)} 
+	 * gets called and rejects are logged at info level.
 	 * <p>
 	 * Any other argument gets interpreted as a comma separated whitelists of 
 	 * domains, hostnames or IP addresses, for which the helo check should be 
@@ -97,8 +96,7 @@ public class HeloCheck
 	 */
 	@Override
 	public void doAbort() {
-		from = null;
-		to = null;
+		// nothing to do
 	}
 
 	/**
@@ -108,11 +106,10 @@ public class HeloCheck
 	public void doQuit() {
 		reply = null;
 		clientAddress = null;
-		from = null;
-		to = null;
 		ehelo = null;
 		clientFQHN = null;
 		clientIP = null;
+		whitelisted = null;
 	}
 
 	/**
@@ -226,42 +223,16 @@ public class HeloCheck
 		return cmds;
 	}
 	
-	/**
-	 * {@inheritDoc}
-	 */
-	@Override
-	public void doMacros(HashMap<String,String> allMacros, 
-		HashMap<String,String> newMacros) 
-	{
-		if (delayCheck) {
-			if (newMacros.containsKey("{auth_authen}") && reply != null) {
-				// this macro comes always after connect and helo checks
-				if (log.isDebugEnabled()) {
-					log.debug("Clearing " + reply.toString() + " for " + 
-						newMacros.get("{auth_authen}"));
-				}
-				reply = null;
-			}
-			String tmp = newMacros.get("{rcpt_addr}");
-			if (tmp != null) {
-				to = tmp;
-			} else {
-				tmp = newMacros.get("{mail_addr}");
-				if (tmp != null) {
-					from = tmp;
-				}
-			}
-		}
-	}
-
-	private String getLogInfo() {
+	private String getLogInfo(HashMap<String, String> macros) {
 		StringBuilder buf = new StringBuilder("to='");
-		if ( to != null) {
-			buf.append(to);
+		String tmp = macros.get("{rcpt_addr}");
+		if (tmp != null) {
+			buf.append(tmp);
 		}
 		buf.append("' from='");
-		if ( from != null) {
-			buf.append(from);
+		tmp = macros.get("{mail_addr}");
+		if (tmp != null) {
+			buf.append(tmp);
 		}
 		buf.append("' ip='");
 		if (clientIP != null) {
@@ -287,9 +258,21 @@ public class HeloCheck
 	 * {@inheritDoc}
 	 */
 	@Override
-	public Packet doRecipientTo(String[] recipient) {
-		if (reply != null && log.isInfoEnabled()) {
-			log.info(getLogInfo() + reply.toString());
+	public Packet doRecipientTo(String[] recipient, HashMap<String,String> macros) 
+	{
+		if (reply != null && macros.containsKey("{auth_authen}")) {
+			if (log.isDebugEnabled()) {
+				log.debug("Clearing " + reply.toString() + " for " + 
+					macros.get("{auth_authen}"));
+			}
+			reply = null;
+		}
+		if (log.isInfoEnabled()) {
+			if (reply != null) {
+				log.info(getLogInfo(macros) + reply.toString());
+			} else if (whitelisted != null) {
+				log.info(getLogInfo(macros) + whitelisted);
+			}
 		}
 		return reply;
 	}
@@ -299,7 +282,7 @@ public class HeloCheck
 	 */
 	@Override
 	public Packet doConnect(String hostname, AddressFamily family, int port, 
-		String info) 
+		String info, HashMap<String,String> macros) 
 	{
 		clientIP = info;
 		clientFQHN = hostname;
@@ -340,15 +323,12 @@ public class HeloCheck
 	 * {@inheritDoc}
 	 */
 	@Override
-	public Packet doHelo(String domain) {
+	public Packet doHelo(String domain, HashMap<String,String> macros) {
 		ehelo = domain;
 		if (ehloWhitelist != null) {
 			for (int i=0; i < ehloWhitelist.length; i++) {
 				if (domain.endsWith(ehloWhitelist[i])) {
-					if (log.isInfoEnabled()) {
-						log.info(getLogInfo() +  " helo whitelist: " 
-							+ ehloWhitelist[i]);
-					}
+					whitelisted = "helo whitelist: " + ehloWhitelist[i];
 					return null;
 				}
 			}
@@ -356,10 +336,7 @@ public class HeloCheck
 		if (fqhnWhitelist != null && clientFQHN != null) {
 			for (int i=0; i < fqhnWhitelist.length; i++) {
 				if (clientFQHN.endsWith(fqhnWhitelist[i])) {
-					if (log.isInfoEnabled()) {
-						log.info(getLogInfo() +  " fqhn whitelist: " 
-							+ fqhnWhitelist[i]);
-					}
+					whitelisted = "fqhn whitelist: " + fqhnWhitelist[i];
 					return null;
 				}
 			}
@@ -367,10 +344,7 @@ public class HeloCheck
 		if (ipWhitelist != null && clientAddress != null) {
 			for (int i=0; i < ipWhitelist.length; i++) {
 				if (ipWhitelist[i].contains(clientAddress)) {
-					if (log.isInfoEnabled()) {
-						log.info(getLogInfo() +  " ip whitelist: " 
-							+ ipWhitelist[i]);
-					}
+					whitelisted = "ip whitelist: " + ipWhitelist[i];
 					return null;
 				}
 			}
@@ -467,8 +441,9 @@ public class HeloCheck
 		}
 		HeloCheck h = new HeloCheck(args[0]);
 		InetAddress addr = InetAddress.getByName(args[1]);
+		HashMap<String,String> macros = new HashMap<String,String>(0);
 		h.doConnect(addr.getCanonicalHostName(), AddressFamily.INET, 61739, 
-			args[1]);
-		log.info(h.doHelo(args[2]).toString());
+			args[1], macros);
+		log.info(h.doHelo(args[2].toString(), macros).toString());
 	}
 }

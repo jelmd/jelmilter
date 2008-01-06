@@ -54,60 +54,44 @@ public class WhoisCheck
 {
 	private static final Logger log = LoggerFactory
 		.getLogger(WhoisCheck.class);
-	private InetSocketAddress addr;
+	private InetSocketAddress[] addr;
 	private static final AtomicInteger instCounter = new AtomicInteger();
 	private String name;
-	private String[] prefix;
+	private Pattern[] patterns;
+	private long[] timeoutMap;
+	private boolean stopWaiting;
 
 	/**
 	 * Create a new Instance.
-	 * @param serverPort	server:port, whereby <var>server</var> is the 
-	 * 		hostname or IP-Address and <var>port</var> the port of the whois-spam
-	 * 		server to ask. Optionally it might be folloewd by a comma separated 
-	 * 		list of hostname prefixes, which should be considered to be spam
-	 * 		hosts.
+	 * @param serverPortPattern	a {@code |} searated server:port list, whereby 
+	 * 		<var>server</var> is the hostname or IP-Address and <var>port</var> 
+	 * 		the port of the whois-spam server to ask. Optionally it might be 
+	 * 		followed by a comma separated list of hostname patterns, which 
+	 * 		are also considered to be spam hosts.
+	 * 		<p>
+	 * 		E.g. server:port|fallbackserver:port,hostnamePattern0,...
 	 */
-	public WhoisCheck(String serverPort) {
-		if (serverPort == null) {
+	public WhoisCheck(String serverPortPattern) {
+		if (serverPortPattern == null) {
 			throw new IllegalArgumentException("whois-spam server address and port required");
 		}
-		String[] params = serverPort.split(",");
-		int idx = params[0].indexOf(':');
-		if (idx == -1) {
-			throw new IllegalArgumentException("whois-spam server:port address required");
-		}
-		String host = params[0].substring(0, idx);
-		String tmp = params[0].substring(idx+1);
-		int aPort = -1;
-		try {
-			aPort = Integer.parseInt(tmp, 10);
-			addr = new InetSocketAddress(host, aPort);
-		} catch (Exception e) {
-			throw new IllegalArgumentException("Invalid port '" + tmp + "'");
-		}
-		if (addr == null || addr.isUnresolved()) {
-			throw new IllegalArgumentException("Invalid host/ip '" + tmp + "'");
-		}
-		if (params.length > 1) {
-			prefix = new String[params.length-1];
-			System.arraycopy(params, 1, prefix, 0, params.length-1);
-		}
 		name = "WhoisCheck " + instCounter.getAndIncrement();
+		reconfigure(serverPortPattern, true);
 	}
 
 	/**
 	 * Create a new Instance.
 	 * @param addr	the socket of the whois-spam to use
-	 * @param prefix	a list of hostname prefixes, which are considered to be 
-	 * 		spam hosts 
+	 * @param patterns	a list of hostname patterns, which are considered to be 
+	 * 		spam hosts
 	 */
-	public WhoisCheck(InetSocketAddress addr, String[] prefix) {
-		if (addr == null || addr.isUnresolved()) {
+	public WhoisCheck(InetSocketAddress[] addr, Pattern[] patterns) {
+		if (addr == null) {
 			throw new IllegalArgumentException("Invalid address/port");
 		}
-		this.addr = addr;
-		this.prefix = prefix;
 		name = "WhoisCheck " + instCounter.getAndIncrement();
+		this.addr = addr;
+		this.patterns = patterns;
 	}
 
 	/**
@@ -115,7 +99,7 @@ public class WhoisCheck
 	 */
 	@Override
 	public void doAbort() {
-		// nothing todo
+		stopWaiting = true;
 	}
 
 	/**
@@ -123,7 +107,7 @@ public class WhoisCheck
 	 */
 	@Override
 	public void doQuit() {
-		// nothing todo
+		stopWaiting = true;
 	}
 
 	/**
@@ -131,7 +115,7 @@ public class WhoisCheck
 	 */
 	@Override
 	public MailFilter getInstance() {
-		return new WhoisCheck(addr, prefix);
+		return new WhoisCheck(addr, patterns);
 	}
 
 	/**
@@ -142,37 +126,71 @@ public class WhoisCheck
 		return name;
 	}
 
+	private boolean reconfigure(String serverPortPatterns, boolean throwEx) {
+		String msg = "whois-spam server:port address required";
+		if (serverPortPatterns == null) {
+			if (throwEx)
+				throw new IllegalArgumentException(msg);
+			log.warn(msg);
+			return false;
+		}
+		String[] params = serverPortPatterns.split(",");
+		String[] serverPort = params[0].split("\\|");
+		ArrayList<InetSocketAddress> ia = new ArrayList<InetSocketAddress>();
+		for (int i=0; i < serverPort.length; i++) {
+			int idx = params[0].indexOf(':');
+			if (idx == -1) {
+				log.warn(msg);
+				continue;
+			}
+			String host = params[0].substring(0, idx);
+			String tmp = params[0].substring(idx+1);
+			int aPort = -1;
+			InetSocketAddress aAddr = null;
+			try {
+				aPort = Integer.parseInt(tmp, 10);
+				aAddr = new InetSocketAddress(host, aPort);
+			} catch (Exception e) {
+				log.warn("Invalid port '" + tmp + "'");
+				continue;
+			}
+			if (aAddr == null || aAddr.isUnresolved()) {
+				log.warn("Invalid host/ip '" + tmp + "'");
+			} else {
+				ia.add(aAddr);
+			}
+		}
+		if (ia.isEmpty()) {
+			if (throwEx)
+				throw new IllegalArgumentException(msg);
+			log.warn(msg);
+			return false;
+		}
+		ArrayList<Pattern> pl = new ArrayList<Pattern>();
+		if (params.length > 1) {
+			for (int i=params.length-1; i > 0; i--) {
+				try {
+					Pattern p = Pattern.compile(params[i]);
+					pl.add(p);
+				} catch (Exception e) {
+					log.warn(e.getLocalizedMessage());
+					if (log.isDebugEnabled()) {
+						log.debug("reconfigure", e);
+					}
+				}
+			}
+		}
+		patterns = pl.toArray(new Pattern[pl.size()]);
+		addr = ia.toArray(new InetSocketAddress[ia.size()]);
+		timeoutMap = new long[ia.size()];
+		return true;
+	}
 	/**
 	 * {@inheritDoc}
 	 */
 	@Override
-	public boolean reconfigure(String serverPort) {
-		if (serverPort == null) {
-			log.warn("whois-spam server address and port required");
-			return false;
-		}
-		int idx = serverPort.indexOf(':');
-		if (idx == -1) {
-			log.warn("whois-spam server:port address required");
-			return false;
-		}
-		String host = serverPort.substring(0, idx);
-		String tmp = serverPort.substring(idx+1);
-		int aPort = 1;
-		InetSocketAddress aAddr = null;
-		try {
-			aPort = Integer.parseInt(tmp, 10);
-			aAddr = new InetSocketAddress(host, aPort);
-		} catch (Exception e) {
-			log.warn("Invalid port '" + tmp + "'");
-			return false;
-		}
-		if (addr == null || addr.isUnresolved()) {
-			log.warn("Invalid host/ip '" + tmp + "'");
-			return false;
-		}
-		this.addr = aAddr;
-		return true;
+	public boolean reconfigure(String serverPortPattern) {
+		return reconfigure(serverPortPattern, false);
 	}
 	
 	/**
@@ -315,14 +333,57 @@ public class WhoisCheck
 	}
 	
 	private ByteBuffer lenBuffer = ByteBuffer.allocateDirect(4);
+	private static long serverTimeout = 5 * 60 * 1000;
+	private static long connectTimeout = 30 * 1000;
+
+	private SocketChannel getChannel() {
+		SocketChannel ch = null;
+		for (int i=0; i < addr.length && ch == null; i++) {
+			long start = System.currentTimeMillis();
+			long timeout = i == 0 ? serverTimeout : (connectTimeout << 1);
+			if (start - timeoutMap[i] > timeout) {
+				// lets try the master for max 5 min in an intervall of 30 sec
+				// prefer always the master, since slaves might be not uptodate
+				while (!stopWaiting) {
+					try {
+						ch = SocketChannel.open();
+						ch.socket().setSoTimeout(8 * 60 * 1000);
+						ch.configureBlocking(true);
+						ch.connect(addr[i]);
+					} catch (Exception e) {
+						log.warn(e.getLocalizedMessage());
+						if (log.isDebugEnabled()) {
+							log.debug("getChannel", e);
+						}
+						ch = null;
+					}
+					if (ch == null) {
+						long now = System.currentTimeMillis();
+						if (now - start >= timeout) {
+							timeoutMap[i] = now;
+							break;
+						}
+						try { 
+							Thread.sleep(connectTimeout);
+						} catch (Exception e) {
+							// ignore
+						}
+					} else {
+						break;
+					}
+				}
+			}
+		}
+		return ch;
+	}
 
 	private void askWhois(StringBuilder buf) {
-		SocketChannel ch = null;
+		SocketChannel ch = getChannel();
+		if (ch == null) {
+			buf.setLength(0);
+			return;
+		}
 		try {
-			ch = SocketChannel.open();
-			ch.socket().setSoTimeout(5 * 60 * 1000);
-			ch.configureBlocking(true);
-			ch.connect(addr);
 			ByteBuffer bbuf = ByteBuffer.allocateDirect(buf.length()*2);
 			bbuf.putInt(buf.length());
 			bbuf.put(Misc.getBytes(buf.toString()));
@@ -390,6 +451,7 @@ public class WhoisCheck
 	public List<Packet> doEndOfMail(List<Header> headers, 
 		HashMap<String,String> macros, Mail message) 
 	{
+		stopWaiting = false;
 		ArrayList<URI> list = null;
 		try {
 			// spam is usually <= 25KiB
@@ -414,14 +476,12 @@ public class WhoisCheck
 		if (list.size() > 0) {
 			for (URI uri : list) {
 				String host = uri.getHost();
-				if (prefix != null) {
-					for (int i=prefix.length-1; i >= 0; i--) {
-						if (host.startsWith(prefix[i])) {
-							p = new ReplyPacket(550, "5.7.1", 
-								"Rejecting spam host");
-							log.info(getLogInfo(macros) + "host prefix match: " + host);
-							break;
-						}
+				for (int i=patterns.length-1; i >= 0; i--) {
+					if (patterns[i].matcher(host).find()) {
+						p = new ReplyPacket(550, "5.7.1", 
+							"Rejecting spam host");
+						log.info(getLogInfo(macros) + "host pattern match: " + host);
+						break;
 					}
 				}
 				if (p == null) {
@@ -445,7 +505,7 @@ public class WhoisCheck
 						continue;
 					}
 					char c = res[i].charAt(0);
-					if (c == 'A' || c == 'B' || c == 'F') {
+					if (c == 'A' || c == 'B' || c == 'F' || c == 'M') {
 						p = new ReplyPacket(550, "5.7.1", 
 							"Rejecting spam [" + c + "]");
 						log.info(getLogInfo(macros) + res[i]);
@@ -476,12 +536,12 @@ public class WhoisCheck
 	
 	/**
 	 * Read a mbox file and submit URLs found to the whois-spam server
-	 * @param args	0 .. server:port, 1 .. mbox file to read
+	 * @param args	0 .. server:port,pattern,... 1 .. mbox file to read
 	 * @throws IOException 
 	 */
 	public static void main(String[] args) throws IOException {
 		if (args.length < 2) {
-			log.warn("Usage: java -cp ... WhoisCheck server:port mboxFile");
+			log.warn("Usage: java -cp ... WhoisCheck server:port,pattern,... mboxFile");
 			System.exit(1);
 		}
 		ArrayList<Mail> mails = MboxReader.read(new File(args[1]));

@@ -1,157 +1,234 @@
 <?xml version="1.0" encoding="ISO-8859-1"?>
-<grammar ns="" xmlns="http://relaxng.org/ns/structure/1.0"
-	datatypeLibrary="http://www.w3.org/2001/XMLSchema-datatypes">
-	<start>
-		<element name="regex">
-			<optional>
-				<attribute name="id">
-					<data type="NMTOKEN"/>
-				</attribute>
-			</optional>
-			<optional>
-				<attribute name="maxsize">
-					<data type="integer"/>
-				</attribute>
-			</optional>
-			<oneOrMore>
-				<element name="rule">
-					<optional>
-						<attribute name="id">
-							<data type="NMTOKEN"/>
-						</attribute>
-					</optional>
-					<optional>
-						<attribute name="force">
-							<data type="boolean"/>
-						</attribute>
-					</optional>
-					<attribute name="onmatch">
-						<choice>
-							<value>accept</value>
-							<value>reject</value>
-							<value>discard</value>
-							<value>tempfail</value>
-						</choice>
-					</attribute>
-					<optional>
-						<element name="msg">
-							<attribute name="reply">
-								<data type="integer"/>
-							</attribute>
-							<attribute name="status">
-								<data type="NMTOKEN"/>
-							</attribute>
-							<text/>
-						</element>
-					</optional>
-					<choice>
-						<ref name="or"/>
-						<ref name="and"/>
-					</choice>
-				</element>
-			</oneOrMore>
-		</element>
-	</start>
-	<define name="or">
-		<element name="or">
-			<optional>
-				<attribute name="id">
-					<data type="NMTOKEN"/>
-				</attribute>
-			</optional>
-			<optional>
-				<attribute name="not">
-					<data type="boolean"/>
-				</attribute>
-			</optional>
-			<zeroOrMore>
-				<choice>
-					<ref name="and"/>
-					<ref name="or"/>
-					<ref name="find"/>
-					<ref name="match"/>
-				</choice>
-			</zeroOrMore>
-		</element>
-	</define>
-	<define name="and">
-		<element name="and">
-			<optional>
-				<attribute name="id">
-					<data type="NMTOKEN"/>
-				</attribute>
-			</optional>
-			<optional>
-				<attribute name="not">
-					<data type="boolean"/>
-				</attribute>
-			</optional>
-			<zeroOrMore>
-				<choice>
-					<ref name="and"/>
-					<ref name="or"/>
-					<ref name="find"/>
-					<ref name="match"/>
-				</choice>
-			</zeroOrMore>
-		</element>
-	</define>
-	<define name="match">
-		<element name="match">
-			<optional>
-				<attribute name="id">
-					<data type="NMTOKEN"/>
-				</attribute>
-			</optional>
-			<optional>
-				<attribute name="not">
-					<data type="boolean"/>
-				</attribute>
-			</optional>
-			<optional>
-				<choice>
-					<attribute name="name"/>
-					<attribute name="type"/>
-				</choice>
-			</optional>
-			<attribute name="src">
-				<choice>
-					<value>mail_from</value>
-					<value>rcpt_to</value>
-					<value>header</value>
-					<value>body</value>
-				</choice>
-			</attribute>
-			<text/>
-		</element>
-	</define>
-	<define name="find">
-		<element name="find">
-			<optional>
-				<attribute name="id">
-					<data type="NMTOKEN"/>
-				</attribute>
-			</optional>
-			<optional>
-				<attribute name="not">
-					<data type="boolean"/>
-				</attribute>
-			</optional>
-			<optional>
-				<choice>
-					<attribute name="name"/>
-					<attribute name="type"/>
-				</choice>
-			</optional>
-			<attribute name="src">
-				<choice>
-					<value>mail_from</value>
-					<value>rcpt_to</value>
-					<value>header</value>
-					<value>body</value>
-				</choice>
-			</attribute>
-			<text/>
-		</element>
-	</define>
+<grammar ns="" xmlns="http://relaxng.org/ns/structure/1.0" datatypeLibrary="http://www.w3.org/2001/XMLSchema-datatypes">
+  <!-- the configuration for RegexCheck -->
+  <start>
+    <element name="regex">
+      <optional>
+        <!--
+          one may use this ID to configure several regex filters, which use this ID
+          as their statName and thus different stats counter
+        -->
+        <attribute name="id">
+          <data type="NMTOKEN"/>
+        </attribute>
+      </optional>
+      <optional>
+        <!--
+          max. size of a message, which should be scanned, i.e. if a message is
+          bigger than maxsize, no rule will be applied and no match returned.
+          If no maxsize is given, it implies no upper limits.
+        -->
+        <attribute name="maxsize">
+          <data type="integer"/>
+        </attribute>
+      </optional>
+      <oneOrMore>
+        <choice>
+          <ref name="rule"/>
+          <ref name="xinclude"/>
+        </choice>
+      </oneOrMore>
+    </element>
+  </start>
+  <!-- another configuration file to include -->
+  <define name="xinclude">
+    <element name="xinclude">
+      <!--
+        the file to include. It has exactly the same syntax the regex element,
+        however, the regex element attributes are ignored
+      -->
+      <attribute name="file">
+        <data type="NMTOKEN"/>
+      </attribute>
+    </element>
+  </define>
+  <!-- a single regex rule -->
+  <define name="rule">
+    <element name="rule">
+      <optional>
+        <!-- used, when matches are logged -->
+        <attribute name="id">
+          <data type="NMTOKEN"/>
+        </attribute>
+      </optional>
+      <optional>
+        <!--
+          if onmatch is "accept" and force is set to "true", it instructs
+          milter4j to use this decision as final, i.e. doesn't process any
+          any other filters and sends the accept packet immediately back to
+          the MTA
+        -->
+        <attribute name="force">
+          <data type="boolean"/>
+        </attribute>
+      </optional>
+      <!-- what to do with the mail, if a rule matches, i.e. returns "true" -->
+      <attribute name="onmatch">
+        <choice>
+          <value>accept</value>
+          <value>reject</value>
+          <value>discard</value>
+          <value>tempfail</value>
+        </choice>
+      </attribute>
+      <optional>
+        <!--
+          the reply message to send, if onmatch is set to "reject" (otherwise
+          this element is ignored). If not specified and onmatch is set 
+          to "reject", "554 5.7.1 rejecting command" will be send back.
+        -->
+        <element name="msg">
+          <!-- SMTP status code 4xx | 5xx -->
+          <attribute name="reply">
+            <data type="integer"/>
+          </attribute>
+          <!-- Extended status code 4.x.x | 5.x.x -->
+          <attribute name="status">
+            <data type="NMTOKEN"/>
+          </attribute>
+          <!-- the message to send -->
+          <text/>
+        </element>
+      </optional>
+      <choice>
+        <ref name="or"/>
+        <ref name="and"/>
+      </choice>
+    </element>
+  </define>
+  <!--
+    combine the result of all rules with OR logic. Shortcuts will be used, i.e.
+    if a rule returns "true", the result gets returned immediately - no further
+    rules will be evaluated.
+  -->
+  <define name="or">
+    <element name="or">
+      <optional>
+        <!-- informational -->
+        <attribute name="id">
+          <data type="NMTOKEN"/>
+        </attribute>
+      </optional>
+      <optional>
+        <!-- if "true", negate the outcome of this rule before returning it -->
+        <attribute name="not">
+          <data type="boolean"/>
+        </attribute>
+      </optional>
+      <zeroOrMore>
+        <choice>
+          <ref name="and"/>
+          <ref name="or"/>
+          <ref name="find"/>
+          <ref name="match"/>
+        </choice>
+      </zeroOrMore>
+    </element>
+  </define>
+  <!--
+    combine the result of all rules with AND logic. Shortcuts will be used, i.e.
+    if a rule returns "false", the result gets returned immediately - no further
+    rules will be evaluated.
+  -->
+  <define name="and">
+    <element name="and">
+      <optional>
+        <!-- informational -->
+        <attribute name="id">
+          <data type="NMTOKEN"/>
+        </attribute>
+      </optional>
+      <optional>
+        <!-- if "true", negate the outcome of this rule before returning it -->
+        <attribute name="not">
+          <data type="boolean"/>
+        </attribute>
+      </optional>
+      <zeroOrMore>
+        <choice>
+          <ref name="and"/>
+          <ref name="or"/>
+          <ref name="find"/>
+          <ref name="match"/>
+        </choice>
+      </zeroOrMore>
+    </element>
+  </define>
+  <!-- find a text in the source, which matches the given regular expression -->
+  <define name="match">
+    <element name="match">
+      <optional>
+        <!-- if set, RegexCheck will log an info message on match using this ID -->
+        <attribute name="id">
+          <data type="NMTOKEN"/>
+        </attribute>
+      </optional>
+      <optional>
+        <!-- if "true", negate the outcome of this rule before returning it -->
+        <attribute name="not">
+          <data type="boolean"/>
+        </attribute>
+      </optional>
+      <optional>
+        <!--
+          If src is set to "header", name will be used as the name of the header
+          to lookup and apply the given regex to its value. If name is not set, 
+          the given regex will be applied to all headers.
+          If src is set to "body", type might be set to a comma separated list
+          of mimetypes (e.g. "text/plain,text/html" or "text/"). In this case,
+          the regex will be applied to message parts with a matching mime type.
+          If type is not specified, "text/" is assumed as default.
+          If src is set to any value, these attributes are ignored.
+        -->
+        <choice>
+          <attribute name="name"/>
+          <attribute name="type"/>
+        </choice>
+      </optional>
+      <!-- Determines, to which section of the mail the regex should be applied. -->
+      <attribute name="src">
+        <choice>
+          <value>mail_from</value>
+          <value>rcpt_to</value>
+          <value>header</value>
+          <value>body</value>
+        </choice>
+      </attribute>
+      <!-- the regular expression (java Pattern syntax) to apply -->
+      <text/>
+    </element>
+  </define>
+  <!--
+    analog to match, however it tries to find the given text literally in the
+    specified source
+  -->
+  <define name="find">
+    <element name="find">
+      <optional>
+        <attribute name="id">
+          <data type="NMTOKEN"/>
+        </attribute>
+      </optional>
+      <optional>
+        <attribute name="not">
+          <data type="boolean"/>
+        </attribute>
+      </optional>
+      <optional>
+        <choice>
+          <attribute name="name"/>
+          <attribute name="type"/>
+        </choice>
+      </optional>
+      <attribute name="src">
+        <choice>
+          <value>mail_from</value>
+          <value>rcpt_to</value>
+          <value>header</value>
+          <value>body</value>
+        </choice>
+      </attribute>
+      <text/>
+    </element>
+  </define>
 </grammar>

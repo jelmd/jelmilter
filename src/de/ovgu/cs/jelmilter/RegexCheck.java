@@ -15,7 +15,9 @@ import java.util.ArrayList;
 import java.util.EnumSet;
 import java.util.Enumeration;
 import java.util.HashMap;
+import java.util.LinkedList;
 import java.util.List;
+import java.util.Map.Entry;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.locks.ReentrantLock;
 
@@ -228,7 +230,7 @@ public class RegexCheck
 	 * {@inheritDoc}
 	 */
 	@Override
-	public Packet doMailFrom(String[] from) {
+	public Packet doMailFrom(String[] from, HashMap<String,String> macros) {
 		if (maxSize == 0) {
 			return null;
 		}
@@ -307,7 +309,8 @@ public class RegexCheck
 	 * {@inheritDoc}
 	 */
 	@Override
-	public Packet doRecipientTo(String[] recipient) {
+	public Packet doRecipientTo(String[] recipient, HashMap<String,String> macros) 
+	{
 		if (maxSize == 0) {
 			return null;
 		}
@@ -342,6 +345,9 @@ public class RegexCheck
 		try {
 			// MAIL FROM: has not always a SIZE= value
 			if (maxSize > 0 && mail.getSize() > maxSize) {
+				if (log.isDebugEnabled()) {
+					log.debug(getLogInfo(macros) + "size=" + mail.getSize());
+				}
 				l.add(new AcceptPacket(false));
 				return l;
 			}
@@ -398,21 +404,74 @@ public class RegexCheck
 			}
 		}
 		ArrayList<RuleSet> rsets = new ArrayList<RuleSet>();
-		while(in.hasNext()) {
-			int ev = in.next();
-			if (ev == XMLStreamConstants.END_ELEMENT) {
-				break;
-			} else if (ev == XMLStreamConstants.START_ELEMENT) {
-				tmp = in.getLocalName();
-				if (tmp.equals("rule")) {
-					RuleSet rs = new RuleSet();
-					rs.fromXml(in);
-					if (!rs.getSources().isEmpty()) {
-						rsets.add(rs);
+		LinkedList<XMLStreamReader> readerStack = 
+			new LinkedList<XMLStreamReader>();
+		HashMap<XMLStreamReader, StreamSource> closeOnReturn = 
+			new HashMap<XMLStreamReader, StreamSource>();
+		readerStack.push(in);
+		try {
+			while (!readerStack.isEmpty()) {
+				in = readerStack.pop();
+				while(in.hasNext()) {
+					int ev = in.next();
+					if (ev == XMLStreamConstants.END_ELEMENT) {
+						break;
+					} else if (ev == XMLStreamConstants.START_ELEMENT) {
+						tmp = in.getLocalName();
+						if (tmp.equals("include")) {
+							String file = in.getAttributeValue(null, "file");
+							Misc.fastForwardToEndOfElement(in);
+							if (file == null) {
+								log.warn("Missing file attribute for include eleent");
+								continue;
+							}
+							File inc = file.startsWith("/")
+								? new File(file)
+								: new File(new File(in.getLocation().getSystemId())
+									.getParentFile(), file);
+							if (! (inc.exists() && inc.isFile() && inc.canRead())) {
+								log.warn("Unable to include file " + file);
+								continue;
+							}
+							try {
+								StreamSource src = 
+									Misc.getInputSourceByFile(inc, false);
+								XMLStreamReader in2 = 
+									Misc.getReader(src, "regex", false);
+								if (in2 != null) {
+									readerStack.push(in);
+									readerStack.push(in2);
+									closeOnReturn.put(in2, src);
+									break;
+								}
+							} catch (IOException e) {
+								log.warn(e.getLocalizedMessage());
+								if (log.isDebugEnabled()) {
+									log.debug("method()", e);
+								}
+								continue;
+							}
+						}
+						if (tmp.equals("rule")) {
+							RuleSet rs = new RuleSet();
+							rs.fromXml(in);
+							if (!rs.getSources().isEmpty()) {
+								rsets.add(rs);
+							}
+						} else {
+							log.warn("Ignoring unknown element '" + tmp + "'");
+							Misc.fastForwardToEndOfElement(in);
+						}
 					}
-				} else {
-					log.warn("Ignoring unknown element '" + tmp + "'");
-					Misc.fastForwardToEndOfElement(in);
+				}
+			}
+		} finally {
+			for (Entry<XMLStreamReader,StreamSource> e : closeOnReturn.entrySet()) {
+				try { e.getKey().close(); } catch (Exception xx) { /* ignore */ }
+				try { 
+					e.getValue().getInputStream().close(); 
+				} catch (Exception xx) { 
+					/* ignore */ 
 				}
 			}
 		}
@@ -459,6 +518,9 @@ public class RegexCheck
 					continue;
 				}
 				if (cmds.contains(Type.BODYEOB)) {
+					if (count == 12) {
+						log.info("bla");
+					}
 					List<Packet> l = rc.doEndOfMail(null, null, mail);
 					if (l != null) {
 						for (Packet lp : l) {
@@ -468,6 +530,7 @@ public class RegexCheck
 						}
 					}
 				}
+				rc.doQuit();
 			} catch (MessagingException e) {
 				log.warn(e.getLocalizedMessage());
 				if (log.isDebugEnabled()) {

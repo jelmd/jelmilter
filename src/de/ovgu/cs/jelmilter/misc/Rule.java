@@ -85,7 +85,7 @@ public class Rule {
 					res = header(headers);
 					break;
 				case BODY:
-					res = body(mail);
+					res = body(mail, macros);
 					break;
 			}
 			if (res && id != null) {
@@ -210,10 +210,12 @@ public class Rule {
 		return false;
 	}
 	
-	private boolean checkMailObject(Object o, String contentType) {
+	private boolean checkMailObject(Object o, String contentType,
+		HashMap<String,String> macros) 
+	{
 		if (o instanceof String) {
 			if (matchesContent(contentType)) {
-				String txt = o.toString();
+				String txt = o.toString().trim();
 				if (find != null) {
 					return txt.indexOf(find) != -1;
 				}
@@ -227,12 +229,14 @@ public class Rule {
 				int idx = part.getCount();
 				for (int i=0; i < idx; i++) {
 					BodyPart bp = part.getBodyPart(i);
-					if (checkMailObject(bp.getContent(), bp.getContentType())) {
+					if (checkMailObject(bp.getContent(), bp.getContentType(),
+						macros)) 
+					{
 						return true;
 					}
 				}
 			} catch (Exception e) {
-				log.warn(e.getLocalizedMessage());
+				log.warn("MID: " + macros.get("Mi") + " " + e.getLocalizedMessage());
 				if (log.isDebugEnabled()) {
 					log.debug("method()", e);
 				}
@@ -248,7 +252,7 @@ public class Rule {
 						bos.write(dst, 0, read);
 					}
 				} catch (IOException e) {
-					log.warn(e.getLocalizedMessage());
+					log.warn("MID: " + macros.get("Mi") + " " + e.getLocalizedMessage());
 					if (log.isDebugEnabled()) {
 						log.debug("method()", e);
 					}
@@ -265,29 +269,29 @@ public class Rule {
 		} else if (o instanceof MimeMessage) {
 			MimeMessage m = (MimeMessage) o;
 			try {
-				return checkMailObject(m.getContent(), m.getContentType());
+				return checkMailObject(m.getContent(), m.getContentType(), macros);
 			} catch (Exception e) {
-				log.warn(e.getLocalizedMessage());
+				log.warn("MID: " + macros.get("Mi") + " " + e.getLocalizedMessage());
 				if (log.isDebugEnabled()) {
 					log.debug("method()", e);
 				}
 			}
 		} else {
 			log.warn("Unable to handle msg " + o.getClass().getSimpleName() 
-				+ " " + contentType);
+				+ " " + contentType + " MID: " + macros.get("Mi"));
 		}
 		return false;
 	}
 	
-	private boolean body(Mail mail) {
+	private boolean body(Mail mail, HashMap<String,String> macros) {
 		if (mail == null) {
 			return not ? true : false;
 		}
 		boolean res = false;
 		try {
-			res = checkMailObject(mail.getContent(), mail.getContentType());
+			res = checkMailObject(mail.getContent(), mail.getContentType(), macros);
 		} catch (Exception e) {
-			log.warn(e.getLocalizedMessage());
+			log.warn("MID:" + macros.get("Mi") + " " + e.getLocalizedMessage());
 			if (log.isDebugEnabled()) {
 				log.debug("method()", e);
 			}
