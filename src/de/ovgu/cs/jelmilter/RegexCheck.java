@@ -418,7 +418,7 @@ public class RegexCheck
 						break;
 					} else if (ev == XMLStreamConstants.START_ELEMENT) {
 						tmp = in.getLocalName();
-						if (tmp.equals("include")) {
+						if (tmp.equals("xinclude")) {
 							String file = in.getAttributeValue(null, "file");
 							Misc.fastForwardToEndOfElement(in);
 							if (file == null) {
