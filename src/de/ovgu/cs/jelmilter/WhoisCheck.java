@@ -92,6 +92,8 @@ public class WhoisCheck
 		name = "WhoisCheck " + instCounter.getAndIncrement();
 		this.addr = addr;
 		this.patterns = patterns;
+		timeoutMap = new long[addr.length];
+		stopWaiting = false;
 	}
 
 	/**
@@ -157,6 +159,7 @@ public class WhoisCheck
 			if (aAddr == null || aAddr.isUnresolved()) {
 				log.warn("Invalid host/ip '" + tmp + "'");
 			} else {
+				log.info("Configured whois-spam server " + host + ":" + aPort);
 				ia.add(aAddr);
 			}
 		}
@@ -462,14 +465,10 @@ public class WhoisCheck
 			checkObject(message.getContent(), message.getContentType(), list);
 		} catch (IOException e) {
 			log.warn(e.getLocalizedMessage());
-			if (log.isDebugEnabled()) {
-				log.debug("method()", e);
-			}
+			log.debug("doEndOfMail()", e);
 		} catch (MessagingException e) {
 			log.warn(e.getLocalizedMessage());
-			if (log.isDebugEnabled()) {
-				log.debug("method()", e);
-			}
+			log.debug("doEndOfMail()", e);
 		}
 		Packet p = null;
 		HashMap<String,URI> map = new HashMap<String,URI>();
