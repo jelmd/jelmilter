@@ -1,16 +1,30 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!--  $Id$ -->
 <configuration>
+<!-- beeing able to switch the log level on the fly is not a bad idea ;-) -->
+<jmxConfigurator />
+<!--
 <appender name="stderr" class="ch.qos.logback.core.ConsoleAppender">
 	<layout class="ch.qos.logback.classic.PatternLayout">
 		<pattern>%date{yyyy-MM-dd HH:mm:ss.SSS} %level [%thread, %file:%line] - %message%n</pattern>
 	</layout>
 	<Target>System.err</Target>
 </appender>
+-->
+<appender name="FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+	<file>/var/log/milter4j/milter.log</file>
+	<append>true</append>
+	<rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+		<fileNamePattern>/var/log/milter4j/%d.milter.log.gz</fileNamePattern>
+	</rollingPolicy>
+	<layout class="ch.qos.logback.classic.PatternLayout">
+		<pattern>%date{yyyy-MM-dd HH:mm:ss.SSS} %level [%thread, %file:%line] - %message%n</pattern>
+	</layout>
+</appender>
 
 <root>
 	<level value="INFO" />
-	<appender-ref ref="stderr" />
+	<appender-ref ref="FILE" />
 </root>
 
 <logger name="de.ovgu.cs"><level value="INFO"/></logger>
