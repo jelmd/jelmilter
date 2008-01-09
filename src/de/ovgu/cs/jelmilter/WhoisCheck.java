@@ -257,6 +257,10 @@ public class WhoisCheck
 		}
 	}
 
+	private String getContentTypeClean(String ct) {
+		return ct.replaceAll("\\n|\\r|\\t", " ").replaceAll("  +", " ");
+	}
+
 	/**
 	 * Extract the extension from the MIMEMessage content type header value. 
 	 * @param contentType	the content type of the mime message
@@ -280,27 +284,37 @@ public class WhoisCheck
 		return buf.toString();
 	}
 
-	private void checkObject(Object o, String contentType, List<URI> uriList) {
+	private boolean checkObject(Object o, String contentType, List<URI> uriList,
+		HashMap<String,String> macros)
+	{
 		if (o instanceof String) {
 			String s = o.toString();
-			WhoisCheck.findURIs(s, uriList);
+			findURIs(s, uriList);
+			return true;
 		} else if (o instanceof MimeMultipart) {
 			try {
 				MimeMultipart part = (MimeMultipart) o;
 				int idx = part.getCount();
 				for (int i=0; i < idx; i++) {
 					BodyPart bp = part.getBodyPart(i);
-					checkObject(bp.getContent(), bp.getContentType(), uriList);
+					if (!checkObject(bp.getContent(), bp.getContentType(), 
+						uriList, macros)) 
+					{
+						return false;
+					}
 				}
+				return true;
 			} catch (Exception e) {
-				log.warn(e.getLocalizedMessage());
+				log.warn(getLogInfo(macros) +  e.getLocalizedMessage());
 				if (log.isDebugEnabled()) {
 					log.debug("method()", e);
 				}
 			}
 		} else if (o instanceof InputStream) {
 			String ext = WhoisCheck.getExtension(contentType);
-			if (ext.equals("plain") || ext.equals("html") || ext.equals("xml")) {
+			if (ext.equals("plain") || ext.equals("html") || ext.equals("xml")
+				|| ext.equals("partial")) 
+			{
 				InputStream in = (InputStream) o;
 				ByteArrayOutputStream bos = new ByteArrayOutputStream(4096);
 				byte[] dst = new byte[4096];
@@ -310,29 +324,37 @@ public class WhoisCheck
 						bos.write(dst, 0, read);
 					}
 				} catch (IOException e) {
-					log.warn(e.getLocalizedMessage());
+					log.warn(getLogInfo(macros) + e.getLocalizedMessage());
 					if (log.isDebugEnabled()) {
 						log.debug("method()", e);
 					}
 				} finally {
 					try { in.close(); } catch (Exception x) { /* ignore */ }
 				}
-				WhoisCheck.findURIs(new String(bos.toByteArray()), uriList);
+				findURIs(new String(bos.toByteArray()), uriList);
+				return true;
 			}
+			if (log.isDebugEnabled()) {
+				log.debug(getLogInfo(macros) + "Skipping URI search for " 
+					+ getContentTypeClean(contentType));
+			}
+			return  true;
 		} else if (o instanceof MimeMessage) {
 			MimeMessage m = (MimeMessage) o;
 			try {
-				checkObject(m.getContent(), m.getContentType(), uriList);
+				return checkObject(m.getContent(), m.getContentType(), uriList,
+					macros);
 			} catch (Exception e) {
-				log.warn(e.getLocalizedMessage());
+				log.warn(getLogInfo(macros) + e.getLocalizedMessage());
 				if (log.isDebugEnabled()) {
 					log.debug("method()", e);
 				}
 			}
-		} else {
-			log.warn("Unable to handle msg " + o.getClass().getSimpleName() 
-				+ " " + contentType);
 		}
+		log.warn(getLogInfo(macros) + "Unable to handle msg " 
+			+ o.getClass().getSimpleName() + " " 
+			+ getContentTypeClean(contentType));
+		return false;
 	}
 	
 	private ByteBuffer lenBuffer = ByteBuffer.allocateDirect(4);
@@ -456,19 +478,30 @@ public class WhoisCheck
 	{
 		stopWaiting = false;
 		ArrayList<URI> list = null;
+		boolean ok = true;
 		try {
 			// spam is usually <= 25KiB
 			if (message == null || message.getSize() > 50*1024) {
 				return null;
 			}
 			list = new ArrayList<URI>();
-			checkObject(message.getContent(), message.getContentType(), list);
+			ok = checkObject(message.getContent(), message.getContentType(), 
+				list, macros);
 		} catch (IOException e) {
-			log.warn(e.getLocalizedMessage());
+			log.warn(getLogInfo(macros) + e.getLocalizedMessage());
 			log.debug("doEndOfMail()", e);
+			ok = false;
 		} catch (MessagingException e) {
-			log.warn(e.getLocalizedMessage());
+			log.warn(getLogInfo(macros) + e.getLocalizedMessage());
 			log.debug("doEndOfMail()", e);
+			ok = false;
+		}
+		if (!ok) {
+			ArrayList<Packet> rlist = new ArrayList<Packet>();
+			Packet p = new ReplyPacket(550, "5.7.1", "e-mail format error");
+			log.info(getLogInfo(macros) +  "e-mail format error");
+			rlist.add(p);
+			return rlist;
 		}
 		Packet p = null;
 		HashMap<String,URI> map = new HashMap<String,URI>();
@@ -479,7 +512,8 @@ public class WhoisCheck
 					if (patterns[i].matcher(host).find()) {
 						p = new ReplyPacket(550, "5.7.1", 
 							"Rejecting spam host");
-						log.info(getLogInfo(macros) + "host pattern match: " + host);
+						log.info(getLogInfo(macros) + "host pattern match: " 
+							+ host);
 						break;
 					}
 				}
@@ -540,7 +574,8 @@ public class WhoisCheck
 	 */
 	public static void main(String[] args) throws IOException {
 		if (args.length < 2) {
-			log.warn("Usage: java -cp ... WhoisCheck server:port,pattern,... mboxFile");
+			log.warn("Usage: java -cp ... " 
+				+ "WhoisCheck server:port,pattern,... mboxFile");
 			System.exit(1);
 		}
 		ArrayList<Mail> mails = MboxReader.read(new File(args[1]));
