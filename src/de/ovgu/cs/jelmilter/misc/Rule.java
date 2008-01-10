@@ -203,7 +203,7 @@ public class Rule {
 	
 	private boolean matchesContent(String contentType) {
 		for (int i=keys.length-1; i >= 0; i--) {
-			if (contentType.startsWith(keys[i])) {
+			if (contentType.toLowerCase().startsWith(keys[i])) {
 				return true;
 			}
 		}

@@ -281,7 +281,7 @@ public class WhoisCheck
 				buf.append('_');
 			}
 		}
-		return buf.toString();
+		return buf.toString().toLowerCase();
 	}
 
 	private boolean checkObject(Object o, String contentType, List<URI> uriList,
@@ -311,7 +311,7 @@ public class WhoisCheck
 				}
 			}
 		} else if (o instanceof InputStream) {
-			String ext = WhoisCheck.getExtension(contentType);
+			String ext = getExtension(contentType);
 			if (ext.equals("plain") || ext.equals("html") || ext.equals("xml")
 				|| ext.equals("partial")) 
 			{
