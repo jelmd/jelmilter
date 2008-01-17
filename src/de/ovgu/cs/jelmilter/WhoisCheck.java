@@ -232,7 +232,8 @@ public class WhoisCheck
 		while (m.find()) {
 			try {
 				URI uri = new URI(m.group());
-				if (uri.getHost().indexOf('.') != -1) {
+				String host = uri.getHost();
+				if (host != null && host.indexOf('.') != -1) {
 					list.add(uri);
 				}
 			} catch (URISyntaxException e) {
