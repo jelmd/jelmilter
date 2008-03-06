@@ -140,13 +140,13 @@ public class WhoisCheck
 		String[] serverPort = params[0].split("\\|");
 		ArrayList<InetSocketAddress> ia = new ArrayList<InetSocketAddress>();
 		for (int i=0; i < serverPort.length; i++) {
-			int idx = params[0].indexOf(':');
+			int idx = serverPort[i].indexOf(':');
 			if (idx == -1) {
 				log.warn(msg);
 				continue;
 			}
-			String host = params[0].substring(0, idx);
-			String tmp = params[0].substring(idx+1);
+			String host = serverPort[i].substring(0, idx);
+			String tmp = serverPort[i].substring(idx+1);
 			int aPort = -1;
 			InetSocketAddress aAddr = null;
 			try {
@@ -581,6 +581,7 @@ public class WhoisCheck
 		}
 		ArrayList<Mail> mails = MboxReader.read(new File(args[1]));
 		WhoisCheck checker = new WhoisCheck(args[0]);
+		checker.reconfigure("mail.cs.uni-magdeburg.de:40006|ra.iws.cs.uni-magdeburg.de:40006,kanaweb,cimail15,intelligentfinance");
 		int count = 1;
 		for (Mail mail : mails) {
 			List<Packet> list = checker.doEndOfMail(null, null, mail);
