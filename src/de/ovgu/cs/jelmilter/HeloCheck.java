@@ -444,6 +444,9 @@ public class HeloCheck
 		HashMap<String,String> macros = new HashMap<String,String>(0);
 		h.doConnect(addr.getCanonicalHostName(), AddressFamily.INET, 61739, 
 			args[1], macros);
-		log.info(h.doHelo(args[2].toString(), macros).toString());
+		log.info("" + h.doHelo(args[2].toString(), macros));
+		if (h.delayCheck) {
+			log.info("" + h.doRecipientTo(null, macros));
+		}
 	}
 }
