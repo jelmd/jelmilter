@@ -576,11 +576,11 @@ public class WhoisCheck
 	public static void main(String[] args) throws IOException {
 		if (args.length < 2) {
 			log.warn("Usage: java -cp ... " 
-				+ "WhoisCheck server:port,pattern,... mboxFile");
+				+ "WhoisCheck server:port[|server:port],pattern,... mboxFile");
 			System.exit(1);
 		}
-		ArrayList<Mail> mails = MboxReader.read(new File(args[1]));
 		WhoisCheck checker = new WhoisCheck(args[0]);
+		ArrayList<Mail> mails = MboxReader.read(new File(args[1]));
 		checker.reconfigure("mail.cs.uni-magdeburg.de:40006|ra.iws.cs.uni-magdeburg.de:40006,kanaweb,cimail15,intelligentfinance");
 		int count = 1;
 		for (Mail mail : mails) {
