@@ -9,7 +9,8 @@ helo:$domain,...	whitelist alle, deren $ehlo auf $domain endet
 ip:$cidr,...		whitelist alle SMTP clients aus den entspr. Bloecken. 
 			CIDR mask = 1 .. 31, sonst alles white
 fqhn:$domain,...	whitelist alle clients, deren $fqhn auf $domain endet
-rcpt:$name,...		whitelist SMTP client, if recipient is one of the given names
+rcpt:$name@domain,...	whitelist SMTP client, if recipient is equal to one of 
+                        the given arguments 
 
 Regeln:
 ==============================

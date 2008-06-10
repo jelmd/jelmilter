@@ -210,7 +210,7 @@ public class HeloCheck
 						for (int k=tmp.length-1; k >= 0; k--) {
 							String rcpt = tmp[k].trim();
 							if (rcpt.length() != 0) {
-								rcptWhitelist.add(rcpt);
+								rcptWhitelist.add(rcpt.startsWith("<") ? rcpt : ("<" + rcpt + ">"));
 							}
 						}
 						if (rcptWhitelist.isEmpty()) {
