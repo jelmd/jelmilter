@@ -15,6 +15,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.EnumSet;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import org.slf4j.Logger;
@@ -47,6 +48,7 @@ public class HeloCheck
 	private String[] ehloWhitelist;
 	private String[] fqhnWhitelist;
 	private CIDR[] ipWhitelist;
+	private HashSet<String> rcptWhitelist;
 	private EnumSet<Type> cmds;
 	
 	// state
@@ -143,6 +145,7 @@ public class HeloCheck
 		ehloWhitelist = null;
 		ipWhitelist = null;
 		fqhnWhitelist = null;
+		rcptWhitelist = null;
 		strict = false;
 		delayCheck = false;
 		reply = null;
@@ -201,6 +204,18 @@ public class HeloCheck
 						ipWhitelist = cidrs.size() > 0 
 							? cidrs.toArray(new CIDR[cidrs.size()])
 							: null;
+					} else if (args[i].startsWith("rcpt=")) {
+						String[] tmp = args[i].substring(3).split(",");
+						rcptWhitelist = new HashSet<String>();
+						for (int k=tmp.length-1; k >= 0; k--) {
+							String rcpt = tmp[k].trim();
+							if (rcpt.length() != 0) {
+								rcptWhitelist.add(rcpt);
+							}
+						}
+						if (rcptWhitelist.isEmpty()) {
+							rcptWhitelist = null;
+						}
 					}
 				} 
 			}
@@ -266,6 +281,15 @@ public class HeloCheck
 					macros.get("{auth_authen}"));
 			}
 			reply = null;
+		}
+		if (reply != null && rcptWhitelist != null && recipient != null) {
+			for (int k=recipient.length-1; k != 0; k--) {
+				if (rcptWhitelist.contains(recipient[k])) {
+					whitelisted = "rcpt whitelist: " + recipient;
+					reply = null;
+					break;
+				}
+			}
 		}
 		if (log.isInfoEnabled()) {
 			if (reply != null) {

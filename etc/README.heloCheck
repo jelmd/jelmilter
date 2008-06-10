@@ -1,0 +1,39 @@
+HeloCheck jelmilter-Parameter:
+==============================
+
+delayCheck		gib client die Moeglichkeit, sich zu authentifizieren,
+			bevor die finale Entscheidung getroffen wird (wenn
+			authentifizierung OK, dann $clientIP, $ehlo etc. egal)
+strict			
+helo:$domain,...	whitelist alle, deren $ehlo auf $domain endet
+ip:$cidr,...		whitelist alle SMTP clients aus den entspr. Bloecken. 
+			CIDR mask = 1 .. 31, sonst alles white
+fqhn:$domain,...	whitelist alle clients, deren $fqhn auf $domain endet
+rcpt:$name,...		whitelist SMTP client, if recipient is one of the given names
+
+Regeln:
+==============================
+0) falls in whitelist, OK
+1) falls $fqhn ~ "^(\[|IPv6:)" : Fix reverse DNS for clientFQHN
+	- sendmail konnte keinen FQHN fuer den client bestimmen
+	  (siehe RFC 821 - 4.1.1. , RFC 2821 - 4.1.1.1)
+2) falls $ehlo ~ "^\[(.*)\]$|^IPv6:(.*)$" : $ehlo = lookupFQHN(&1)
+	- $ehlo kann immer noch eine IP sein, wenn keine reverse
+	  Auflösung (IP->FQHN) existiert
+3) $ip[] = lookupIPs($ehlo)
+4) falls isEmpty($ip[]) : Protocol violation
+	- $ehlo kann nicht aufgelöst werden bzw. ist ungültige lit. IP-Adresse
+	- lt. RFC 
+5) falls $ehlo IN $ip[] : Protocol violation
+	- akzeptieren nur clients, deren IP reverse auflösbar ist
+6) isLocal($ip) { $ip == null|169.254.0.0/16|10/8|172.16/12|192.168/16|127/8 }
+7) falls !$isLocal($clientIP)
+	a) falls isLocal(anyof($ip[])) : Protocol violation
+		- sagt er ist lokal, hat aber remote IP
+	b) falls $strict || isUnqualifiedHostname($ehlo) &&
+	   falls !($clientIP IN $ip[]) UND !($ehlo IN getMXhosts4($clientIP))
+		: MTA is not $ehlo  - fix reverse DNS/MTA configuration
+		- clientIP ist keine der IPs, die für $ehlo eingetragen sind &&
+		- keiner der für $clientIP eingetragenen MX hostnames ist
+		  $ehlo
+8) OK
