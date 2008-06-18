@@ -354,8 +354,12 @@ public class RegexCheck
 		} catch (MessagingException e) {
 			// ignore
 		}
-		Packet p = 
-			eval(Source.BODY, mailFrom, recipientsTo, macros, headers, mail);
+		Packet p = null;
+		try {
+			p = eval(Source.BODY, mailFrom, recipientsTo, macros, headers, mail);
+		} catch (Exception e) {
+			log.warn("doEndOfMail", e);
+		}
 		if (p != null) {
 			l.add(p);
 			return l;
