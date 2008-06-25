@@ -282,7 +282,13 @@ public class HeloCheck
 			}
 			reply = null;
 		}
-		if (reply != null && rcptWhitelist != null && recipient != null) {
+		if (reply != null && rcptWhitelist != null /* && recipient != null*/ ) {
+			String rcpt = macros.get("{rcpt_addr}");
+			if (rcpt != null && rcptWhitelist.contains(rcpt)) {
+				whitelisted = "rcpt whitelist: " + recipient;
+				reply = null;
+			}
+			/**
 			for (int k=recipient.length-1; k != 0; k--) {
 				if (rcptWhitelist.contains(recipient[k])) {
 					whitelisted = "rcpt whitelist: " + recipient;
@@ -290,6 +296,7 @@ public class HeloCheck
 					break;
 				}
 			}
+			**/
 		}
 		if (log.isInfoEnabled()) {
 			if (reply != null) {
