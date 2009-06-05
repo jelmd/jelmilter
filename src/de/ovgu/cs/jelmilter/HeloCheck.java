@@ -89,7 +89,7 @@ public class HeloCheck
 	 */
 	public HeloCheck(String params) {
 		name = "HeloCheck " + instCounter.getAndIncrement();
-		cmds = EnumSet.of(Type.CONNECT, Type.HELO);
+		cmds = EnumSet.of(Type.CONNECT, Type.HELO, Type.MACRO);
 		reconfigure(params);
 	}
 
@@ -223,10 +223,11 @@ public class HeloCheck
 		}
 		if (delayCheck) {
 			cmds.add(Type.RCPT);
-			cmds.add(Type.MACRO);
 		} else {
+			if (rcptWhitelist != null && rcptWhitelist.size() > 0) {
+				log.warn("skip4 parameter is ignored since 'delayCheck' is not enabled");
+			}
 			cmds.remove(Type.RCPT);
-			cmds.remove(Type.MACRO);
 		}
 		return true;
 	}
@@ -453,10 +454,9 @@ public class HeloCheck
 		}
 		if (a == null) {
 			reply = new ReplyPacket(554, "5.7.1", "Protocol violation");
-			if (delayCheck) {
-				return null;
+			if (!delayCheck) {
+				return reply;
 			}
-			return reply;
 		}
 		return null;
 	}
