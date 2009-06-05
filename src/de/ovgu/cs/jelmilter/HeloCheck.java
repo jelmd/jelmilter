@@ -125,6 +125,7 @@ public class HeloCheck
 		hc.ehloWhitelist = ehloWhitelist;
 		hc.fqhnWhitelist = fqhnWhitelist;
 		hc.ipWhitelist = ipWhitelist;
+		hc.rcptWhitelist = rcptWhitelist;
 		hc.cmds = cmds;
 		return hc;
 	}
@@ -204,13 +205,13 @@ public class HeloCheck
 						ipWhitelist = cidrs.size() > 0 
 							? cidrs.toArray(new CIDR[cidrs.size()])
 							: null;
-					} else if (args[i].startsWith("rcpt=")) {
-						String[] tmp = args[i].substring(3).split(",");
+					} else if (args[i].startsWith("skip4=")) {
+						String[] tmp = args[i].substring(6).split(",");
 						rcptWhitelist = new HashSet<String>();
 						for (int k=tmp.length-1; k >= 0; k--) {
 							String rcpt = tmp[k].trim();
 							if (rcpt.length() != 0) {
-								rcptWhitelist.add(rcpt.startsWith("<") ? rcpt : ("<" + rcpt + ">"));
+								rcptWhitelist.add(rcpt);
 							}
 						}
 						if (rcptWhitelist.isEmpty()) {
@@ -285,7 +286,7 @@ public class HeloCheck
 		if (reply != null && rcptWhitelist != null /* && recipient != null*/ ) {
 			String rcpt = macros.get("{rcpt_addr}");
 			if (rcpt != null && rcptWhitelist.contains(rcpt)) {
-				whitelisted = "rcpt whitelist: " + recipient;
+				whitelisted = "rcpt whitelist " + rcpt;
 				reply = null;
 			}
 			/**
@@ -467,7 +468,7 @@ public class HeloCheck
 	public static void main(String[] args) throws UnknownHostException {
 		if (args.length < 3) {
 			System.err.println("Usage: java -cp HeloCheck "
-				+ "{[strict:][delayCheck:][(FQHN|FQDN,)*]} clientIP helo_arg");
+				+ "{[strict][:delayCheck][:ip=(FQHN|FQDN,)*][:skip4=($uname,)*]} clientIP helo_arg");
 			System.exit(1);
 		}
 		HeloCheck h = new HeloCheck(args[0]);

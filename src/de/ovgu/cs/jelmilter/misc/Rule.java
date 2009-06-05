@@ -319,7 +319,7 @@ public class Rule {
 	}
 	
 	/**
-	 * Get all sources, which are possibly involved indecision making.
+	 * Get all sources, which are possibly involved in decision making.
 	 * @return a possible empty set of sources.
 	 */
 	public EnumSet<Source> getSources() {
