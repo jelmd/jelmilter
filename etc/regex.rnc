@@ -81,7 +81,7 @@ match =
 		# of mimetypes (e.g. "text/plain,text/html" or "text/"). In this case,
 		# the regex will be applied to message parts with a matching mime type.
 		# If type is not specified, "text/" is assumed as default.
-		# If src is set to any value, these attributes are ignored.
+		# If src is set to any other value, 'name' and 'type' attributes are ignored.
 		(attribute name { text } | attribute type { text })?,
 		# Determines, to which section of the mail the regex should be applied.
 		attribute src { "mail_from" | "rcpt_to" | "header" | "body" },

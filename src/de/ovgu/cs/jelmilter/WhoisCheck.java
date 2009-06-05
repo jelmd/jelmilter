@@ -156,7 +156,7 @@ public class WhoisCheck
 				log.warn("Invalid port '" + tmp + "'");
 				continue;
 			}
-			if (aAddr == null || aAddr.isUnresolved()) {
+			if (aAddr.isUnresolved()) {
 				log.warn("Invalid host/ip '" + tmp + "'");
 			} else {
 				log.info("Configured whois-spam server " + host + ":" + aPort);
@@ -440,9 +440,7 @@ public class WhoisCheck
 				log.debug("askWhois", e);
 			}
 		} finally {
-			if (ch != null) {
-				try { ch.close(); } catch (Exception e) { /* ignore */ }
-			}
+			try { ch.close(); } catch (Exception e) { /* ignore */ }
 		}
 	}
 
@@ -506,7 +504,7 @@ public class WhoisCheck
 		}
 		Packet p = null;
 		HashMap<String,URI> map = new HashMap<String,URI>();
-		if (list.size() > 0) {
+		if (list != null && list.size() > 0) {
 			for (URI uri : list) {
 				String host = uri.getHost();
 				for (int i=patterns.length-1; i >= 0; i--) {

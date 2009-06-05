@@ -106,7 +106,7 @@ public class RegexCheck
 			for (int i=ruleSet.length-1; i >=0; i--) {
 				src.addAll(ruleSet[i].getSources());
 			}
-			commands = EnumSet.noneOf(Type.class);
+			commands = EnumSet.of(Type.MACRO); // for logging we want macros
 			if (src.contains(Source.MAIL_FROM)) {
 				commands.add(Type.MAIL);
 			}
@@ -270,6 +270,15 @@ public class RegexCheck
 		tmp = macros.get("{mail_addr}");
 		if ( tmp != null) {
 			buf.append(tmp);
+		} else if (mailFrom != null) {
+			for (int i=mailFrom.length-1; i >= 0; i--) {
+				if (mailFrom[i].indexOf('=') == -1) {
+					buf.append(mailFrom[i]).append(',');
+				}
+			}
+			if (buf.charAt(buf.length()-1) == ',') {
+				buf.setLength(buf.length()-1);
+			}
 		}
 		buf.append("' via='");
 		tmp = macros.get("_");

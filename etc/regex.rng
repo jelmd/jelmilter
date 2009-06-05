@@ -178,7 +178,7 @@
           of mimetypes (e.g. "text/plain,text/html" or "text/"). In this case,
           the regex will be applied to message parts with a matching mime type.
           If type is not specified, "text/" is assumed as default.
-          If src is set to any value, these attributes are ignored.
+          If src is set to any other value, 'name' and 'type' attributes are ignored.
         -->
         <choice>
           <attribute name="name"/>

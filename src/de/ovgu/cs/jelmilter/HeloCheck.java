@@ -68,7 +68,7 @@ public class HeloCheck
 	 * listed for this client.
 	 * <p>
 	 * If an argument is {@code delayCheck}, the Connect and Helo checks are done
-	 * as usual, however if the yield to a reject packet, it will be only sent,
+	 * as usual, however if they yield to a reject packet, it will be only sent,
 	 * if the user is not authenticated. So, if this feature is enabled,
 	 * possible rejects are delayed until {@link #doRecipientTo(String[], HashMap)} 
 	 * gets called and rejects are logged at info level.

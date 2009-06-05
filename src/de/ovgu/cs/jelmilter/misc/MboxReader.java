@@ -83,7 +83,9 @@ public class MboxReader {
 				count += i;
 			}
 		} finally {
-			try { ir.close(); } catch (Exception x) { /* ignore */ }
+			if (ir != null) {
+				try { ir.close(); } catch (Exception x) { /* ignore */ }
+			}
 		}
 		byte[] from = new byte[] { '\n', 'F', 'r', 'o', 'm', ' '};
 		int eol = 0;
@@ -142,7 +144,9 @@ public class MboxReader {
 				log.debug("method()", e);
 			}
 		} finally {
-			try { fos.close(); } catch (Exception e) { /* ignore */ }
+			if (fos != null) {
+				try { fos.close(); } catch (Exception e) { /* ignore */ }
+			}
 		}
 	}
 	
@@ -236,7 +240,7 @@ public class MboxReader {
 			try {
 				StringWriter w = new StringWriter();
 				PrintWriter p = new PrintWriter(w);
-				p.printf("%04d", count);
+				p.printf("%04d", Integer.valueOf(count));
 				dumpObject(dir, w.toString(), count, m.getContent(), 
 					m.getContentType(), uriList);
 			} catch (Exception e) {

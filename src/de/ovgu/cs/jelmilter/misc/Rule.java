@@ -55,7 +55,7 @@ public class Rule {
 	/**
 	 * Evaluate the rule.
 	 * <p>
-	 * Depending on the state of mail reception, soe or even all arguments
+	 * Depending on the state of mail reception, some or even all arguments
 	 * might be {@code null} or empty.
 	 * 
 	 * @param from		arguments of the {@code MAIL FROM:} command
