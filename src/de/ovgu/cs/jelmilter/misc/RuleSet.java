@@ -186,7 +186,10 @@ public class RuleSet {
 			}
 		}
 		if (reply == 0) {
-			log.warn("Reply code is 0: " + this.toString());
+			// accept messages do not need a reply code
+			reply = -1;
+			xcode = null;
+			message = null;
 		}
 	}
 	
@@ -196,7 +199,7 @@ public class RuleSet {
 	@Override
 	public String toString() {
 		return getClass().getSimpleName() + "[id=" + id 
-			+ ";action=" + onmatch.name()
+			+ ";action=" + onmatch
 			+ ";force=" + force
 			+ ";reply=" + reply
 			+ ";xcode=" + xcode

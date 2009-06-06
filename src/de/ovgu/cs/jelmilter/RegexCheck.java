@@ -208,7 +208,7 @@ public class RegexCheck
 				}
 			}
 		} catch (Exception e) {
-			log.warn(e.getLocalizedMessage());
+			log.warn(e.getLocalizedMessage(), e);
 			if (log.isDebugEnabled()) {
 				log.debug("reconfigure", e);
 			}

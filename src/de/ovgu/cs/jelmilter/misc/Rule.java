@@ -437,7 +437,7 @@ public class Rule {
 	@Override
 	public String toString() {
 		StringBuilder buf = new StringBuilder(getClass().getSimpleName())
-			.append("[id=").append(id).append(";src=").append(source.name())
+			.append("[id=").append(id).append(";src=").append(source)
 			.append(";allSrc=");
 		if (allSources == null) {
 			buf.append("null");
