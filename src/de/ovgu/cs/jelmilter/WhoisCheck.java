@@ -186,6 +186,8 @@ public class WhoisCheck
 		patterns = pl.toArray(new Pattern[pl.size()]);
 		addr = ia.toArray(new InetSocketAddress[ia.size()]);
 		timeoutMap = new long[ia.size()];
+		log.info("Connect timeout=" + connectTimeout/60000 
+			+ ", Server timeout=" + serverTimeout/60000);
 		return true;
 	}
 	/**
@@ -407,6 +409,7 @@ public class WhoisCheck
 		SocketChannel ch = getChannel();
 		if (ch == null) {
 			buf.setLength(0);
+			log.warn("Unable to get channel to ask for " + buf.toString());
 			return;
 		}
 		try {
