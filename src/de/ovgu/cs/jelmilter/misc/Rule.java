@@ -430,4 +430,56 @@ public class Rule {
 			rules = nRules.toArray(new Rule[nRules.size()]);
 		}
 	}
+	
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public String toString() {
+		StringBuilder buf = new StringBuilder(getClass().getSimpleName())
+			.append("[id=").append(id).append(";src=").append(source.name())
+			.append(";allSrc=");
+		if (allSources == null) {
+			buf.append("null");
+		} else {
+			for (Source s : allSources) {
+				buf.append(s.name()).append(',');
+			}
+			buf.setLength(buf.length()-1);
+		}
+		if (isSimple()) {
+			buf.append(';');
+			if (not) {
+				buf.append('!');
+			}
+			if (find != null) {
+				buf.append("find=").append(find);
+			}
+			if (pattern != null) {
+				buf.append("pattern=").append(pattern.pattern());
+			}
+		}
+		if (keys != null && keys.length > 0) {
+			buf.append(";keys=");
+			for (int i=0; i < keys.length; i++) {
+				buf.append(keys[i]).append(',');
+			}
+			buf.setLength(buf.length()-1);
+		}
+		if (!isSimple()) {
+			buf.append(';');
+			if (not) {
+				buf.append('!');
+			}
+			buf.append(and ? "and=" : "or=");
+			if (rules != null && rules.length > 0) {
+				for (int i=0; i < rules.length; i++) {
+					buf.append(rules[i].toString()).append(',');
+				}
+				buf.setLength(buf.length()-1);
+			}
+		}
+		buf.append(']');
+		return buf.toString();
+	}
 }

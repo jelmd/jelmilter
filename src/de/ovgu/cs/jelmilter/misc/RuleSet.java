@@ -185,5 +185,22 @@ public class RuleSet {
 				}
 			}
 		}
+		if (reply == 0) {
+			log.warn("Reply code is 0: " + this.toString());
+		}
+	}
+	
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public String toString() {
+		return getClass().getSimpleName() + "[id=" + id 
+			+ ";action=" + onmatch.name()
+			+ ";force=" + force
+			+ ";reply=" + reply
+			+ ";xcode=" + xcode
+			+ ";msg=" + message
+			+ ";rule=" + rule + ']';
 	}
 }

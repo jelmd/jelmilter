@@ -367,7 +367,7 @@ public class RegexCheck
 		try {
 			p = eval(Source.BODY, mailFrom, recipientsTo, macros, headers, mail);
 		} catch (Exception e) {
-			log.warn("doEndOfMail", e);
+			log.warn("doEndOfMail - " + this.toString(), e);
 		}
 		if (p != null) {
 			l.add(p);
@@ -551,5 +551,39 @@ public class RegexCheck
 				}
 			}
 		}
+	}
+	
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public String toString() {
+		StringBuilder buf = new StringBuilder(getClass().getSimpleName())
+			.append("[cmds=");
+		for (Type t : commands) {
+			buf.append(t.name()).append(',');
+		}
+		buf.setLength(buf.length()-1);
+		buf.append(";name=").append(name)
+			.append(";maxSize=").append(maxSize)
+			.append(";rule=").append(ruleSet[currentRuleIdx].toString()).append(')')
+			.append(";statName=").append(statName)
+			.append(";config=").append(configFile);
+		if (mailFrom != null && mailFrom.length > 0) {
+			buf.append(";MAIL FROM=[");
+			for (int i=0; i < mailFrom.length; i++) {
+				buf.append(mailFrom[i]).append("][");
+			}
+			buf.setLength(buf.length()-1);
+		}
+		if (recipientsTo != null && recipientsTo.length > 0) {
+			buf.append(";RCPT TO=[");
+			for (int i=0; i < recipientsTo.length; i++) {
+				buf.append(recipientsTo[i]).append("][");
+			}
+			buf.setLength(buf.length()-1);
+		}
+		buf.append(']');
+		return buf.toString();
 	}
 }
