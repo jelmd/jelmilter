@@ -307,10 +307,10 @@
 	##########################################################################
 	-->
 	<target name="cp.run.sh" depends="init">
-		<copy file="${src.dir}/run.sh"
-			tofile="${dist.dir}/bin/${ant.project.name}">
+		<copy file="${src.dir}/run.sh" tofile="${dist.dir}/bin/milter4j">
 			<filterset refid="main"/>
 		</copy>
+		<copy file="${src.dir}/initd.script" todir="${dist.dir}/docs"/>
 		<chmod file="${dist.dir}/bin/${ant.project.name}" perm="755"/>
 	</target>
 	<target name="cp.lics">

@@ -1,6 +1,6 @@
 #!/bin/ksh
 
-JAVA_HOME=${JAVA_HOME:-/local/apps/jdk}
+JAVA_HOME=${JAVA_HOME:-/opt/jdk}
 
 # additional flags for the java virtual machine
 JVM_FLAGS="-Djava.awt.headless=true"
@@ -8,10 +8,13 @@ JVM_FLAGS="-Djava.awt.headless=true"
 if [ "$1" != "shutdown" ]; then
 	# enable JMX tools to get information about the server and its stats frome remote
 	JVM_FLAGS="$JVM_FLAGS -Dcom.sun.management.jmxremote.port=12345"
+	# JVM_FLAGS="$JVM_FLAGS -XX:+HeapDumpOnOutOfMemoryError"
+
 	# if one has no firewalls, dedicated connection machines one would probably
 	# inverse these settings
 	JVM_FLAGS="$JVM_FLAGS -Dcom.sun.management.jmxremote.authenticate=false"
 	JVM_FLAGS="$JVM_FLAGS -Dcom.sun.management.jmxremote.ssl=false"
+	JVM_FLAGS="$JVM_FLAGS -server -Xmx256m"
 	
 	# just in case, somebody wants to attach a debugger from remote
 	#JAVA_OPTS="-agentlib:jdwp=transport=dt_socket,address=45678,server=y,suspend=n"
@@ -20,17 +23,20 @@ fi
 #=========================================================================
 # no further changes required
 #=========================================================================
-START_CLASS=Version
+START_CLASS=de.ovgu.cs.milter4j.Server
 
-export LC_CTYPE=en_US
+export LC_CTYPE=de_DE
 
 Usage() {
 cat<<EOF
-Usage: ${0} [-h] [-r] [-v] [shutdown]
+Usage: ${0} [-h] [-r file ] [-e] [-w domain] [-m file] [-v] [shutdown]
 
     -h        print this help and exit
-    -r        regex check the given mbox file
-    
+    -r file   regex check the given mbox file and exit
+    -e        do a HELO check and exit
+    -w domain make a whois-spam check and exit
+	-m file   just read a mbox file  nd exit
+	-v        print version and exit
 EOF
 }
 
@@ -50,13 +56,14 @@ if [ -z "$JVM_FLAGS" ]; then
 	JVM_FLAGS=" "
 fi
 
-while getopts "hwerm" option ; do
+while getopts "hwermv" option ; do
 	case "$option" in
 		h) Usage; exit 0 ;;
-		r) START_CLASS=RegexCheck ;;
-		e) START_CLASS=HeloCheck ;;
-		w) START_CLASS=WhoisCheck ;;
-		m) START_CLASS=misc.MboxReader ;;
+		r) START_CLASS=de.ovgu.cs.jelmilter.RegexCheck ;;
+		e) START_CLASS=de.ovgu.cs.jelmilter.HeloCheck ;;
+		w) START_CLASS=de.ovgu.cs.jelmilter.WhoisCheck ;;
+		m) START_CLASS=de.ovgu.cs.jelmilter.misc.MboxReader ;;
+		v) START_CLASS=de.ovgu.cs.jelmilter.Version;;
 	esac
 done	
 X=$((OPTIND-1))
@@ -94,15 +101,15 @@ fi
 
 # add in the dependency .jar files
 DIRLIBS=${BASE_DIR}/lib/*.jar
-LOCAL_CLASSPATH="${BASE_DIR}/lib"
+LOCAL_CP="${BASE_DIR}/lib"
 for i in $DIRLIBS ; do
     # if the directory is empty, then it will return the input string
     # this is stupid, so case for it
 	if [ "$i" != "${DIRLIBS}" ] ; then
-		LOCAL_CLASSPATH="$i":$LOCAL_CLASSPATH
+		LOCAL_CP="$i":$LOCAL_CP
 	fi
 done
-LOCAL_CLASSPATH="-cp ${LOCAL_CLASSPATH}"
+LOCAL_CP="-cp ${LOCAL_CP}"
 
 if [ -d "${BASE_DIR}/lib/endorsed" ]; then
 	if [ -z "$JVM_FLAGS" ]; then
@@ -112,4 +119,4 @@ if [ -d "${BASE_DIR}/lib/endorsed" ]; then
 	fi
 fi
 
-exec $JAVA ${JVM_FLAGS} ${JAVA_OPTS} $LOCAL_CLASSPATH de.ovgu.cs.jelmilter.$START_CLASS $@
+exec $JAVA ${JVM_FLAGS} ${JAVA_OPTS} $LOCAL_CP $START_CLASS $@
