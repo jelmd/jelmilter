@@ -236,8 +236,11 @@ public class Rule {
 					int res = txt.indexOf(find);
 					if (res != -1) {
 						if (log.isDebugEnabled()) {
-							log.debug("Found in '{}': '{}'", 
+							log.debug("Found in '{}' body: '{}'", 
 								fixContentType(contentType), toString());
+						} else {
+							log.info("Found in '{}' body: '{}'", 
+								fixContentType(contentType), find);
 						}
 						return true;
 					}
@@ -247,7 +250,10 @@ public class Rule {
 				if (m.find()) {
 					if (log.isDebugEnabled()) {
 						log.debug("Match in '" + fixContentType(contentType)
-							+ "': '" + m.group() + "'\n\t" + toString());
+							+ "' body: '" + m.group() + "'\n\t" + toString());
+					} else {
+						log.info("Match in '{}' body: '{}'", 
+							fixContentType(contentType), m.group());
 					}
 					return true;
 				}
@@ -294,8 +300,11 @@ public class Rule {
 					int res = txt.indexOf(find);
 					if (res != -1) {
 						if (log.isDebugEnabled()) {
-							log.debug("Found in '{}': '{}'", 
+							log.debug("Found in '{}' body: '{}'", 
 								fixContentType(contentType), toString());
+						} else {
+							log.info("Found in '{}' body: '{}'", 
+								fixContentType(contentType), find);
 						}
 						return true;
 					}
@@ -305,7 +314,10 @@ public class Rule {
 				if (m.find()) {
 					if (log.isDebugEnabled()) {
 						log.debug("Match in '" + fixContentType(contentType)
-							+ "': '" + m.group() + "'\n\t" + toString());
+							+ "' body: '" + m.group() + "'\n\t" + toString());
+					} else {
+						log.info("Match in '{}' body: '{}'", 
+							fixContentType(contentType), m.group());
 					}
 					return true;
 				}
