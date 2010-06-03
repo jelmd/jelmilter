@@ -303,7 +303,8 @@ public class RegexCheck
 				Packet p = ruleSet[currentRuleIdx]
 				    .eval(from, rcpts, macros, headers, mail);
 				if (p != null && p.getType() != de.ovgu.cs.milter4j.reply.Type.CONTINUE) {
-					log.info(getLogInfo(macros) + "RuleSet \"{}\" matched", 
+					log.info(getLogInfo(macros) + "RuleSet {} \"{}\" matched",
+						Integer.valueOf(currentRuleIdx),
 						ruleSet[currentRuleIdx].getId());
 					return p;
 				}

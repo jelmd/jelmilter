@@ -202,14 +202,30 @@ public class Rule {
 	}
 	
 	private boolean matchesContent(String contentType) {
+		String lower = contentType.toLowerCase();
 		for (int i=keys.length-1; i >= 0; i--) {
-			if (contentType.toLowerCase().startsWith(keys[i])) {
+			if (lower.startsWith(keys[i])) {
 				return true;
 			}
 		}
 		return false;
 	}
 	
+	private static final String fixContentType(String contentType) {
+		return (contentType == null) 
+			? "\"\""
+			: contentType.replaceAll("\\s+", " ").trim();
+	}
+
+	/**
+	 * Check the given Object (String, MimeMultiPart, InputStream, MimeMessage)
+	 * against this rule.
+	 * 
+	 * @param o	object to check
+	 * @param contentType	content type of the object (mail part) to check
+	 * @param macros	macros collected by the milter
+	 * @return {@code true} if a match occured
+	 */
 	private boolean checkMailObject(Object o, String contentType,
 		HashMap<String,String> macros) 
 	{
@@ -217,10 +233,24 @@ public class Rule {
 			if (matchesContent(contentType)) {
 				String txt = o.toString().trim();
 				if (find != null) {
-					return txt.indexOf(find) != -1;
+					int res = txt.indexOf(find);
+					if (res != -1) {
+						if (log.isDebugEnabled()) {
+							log.debug("Found in '{}': '{}'", 
+								fixContentType(contentType), toString());
+						}
+						return true;
+					}
+					return false;
 				}
 				Matcher m = pattern.matcher(txt);
-				return m.find();
+				if (m.find()) {
+					if (log.isDebugEnabled()) {
+						log.debug("Match in '" + fixContentType(contentType)
+							+ "': '" + m.group() + "'\n\t" + toString());
+					}
+					return true;
+				}
 			}
 			return false;
 		} else if (o instanceof MimeMultipart) {
@@ -261,10 +291,24 @@ public class Rule {
 				}
 				String txt = new String(bos.toByteArray());
 				if (find != null) {
-					return txt.indexOf(find) != -1;
+					int res = txt.indexOf(find);
+					if (res != -1) {
+						if (log.isDebugEnabled()) {
+							log.debug("Found in '{}': '{}'", 
+								fixContentType(contentType), toString());
+						}
+						return true;
+					}
+					return false;
 				}
 				Matcher m = pattern.matcher(txt);
-				return m.find();
+				if (m.find()) {
+					if (log.isDebugEnabled()) {
+						log.debug("Match in '" + fixContentType(contentType)
+							+ "': '" + m.group() + "'\n\t" + toString());
+					}
+					return true;
+				}
 			}
 		} else if (o instanceof MimeMessage) {
 			MimeMessage m = (MimeMessage) o;
