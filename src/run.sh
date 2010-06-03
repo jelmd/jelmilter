@@ -29,14 +29,17 @@ export LC_CTYPE=de_DE
 
 Usage() {
 cat<<EOF
-Usage: ${0} [-h] [-r file ] [-e] [-w domain] [-m file] [-v] [shutdown]
+Usage: ${0} [-h] [-r mbox [config]] [-e args] [-w srvPattern mbox] [-m mbox] [-v]
+            [shutdown]
 
-    -h        print this help and exit
-    -r file   regex check the given mbox file and exit
-    -e        do a HELO check and exit
-    -w domain make a whois-spam check and exit
-	-m file   just read a mbox file  nd exit
-	-v        print version and exit
+    -h                 print this help and exit
+    -r mbox [config]   regex check the given mbox file and exit
+    -e args            do a HELO check and exit. Without args a help message
+                       gets printed explaining the args and formats.
+    -w srvPattern mbox make a whois-spam check and exit. srvPattern has the 
+                       format: whoisServer:port[|whoisServer:port]*[,pattern]*
+	-m mbox            just read a mbox file and exit
+	-v                 print version and exit
 EOF
 }
 

@@ -468,7 +468,7 @@ public class HeloCheck
 	public static void main(String[] args) throws UnknownHostException {
 		if (args.length < 3) {
 			System.err.println("Usage: java -cp HeloCheck "
-				+ "{[strict][:delayCheck][:ip=(FQHN|FQDN,)*][:skip4=($uname,)*]} clientIP helo_arg");
+				+ "{[strict][:delayCheck][:ip=(FQHN|FQDN,)*][:skip4=($account,)*]} clientIP helo_arg");
 			System.exit(1);
 		}
 		HeloCheck h = new HeloCheck(args[0]);
