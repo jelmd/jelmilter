@@ -60,6 +60,8 @@ public class WhoisCheck
 	private Pattern[] patterns;
 	private long[] timeoutMap;
 	private boolean stopWaiting;
+	// spam is usually <= 50KiB
+	private int maxSize = 50 * 1024;
 
 	/**
 	 * Create a new Instance.
@@ -67,7 +69,11 @@ public class WhoisCheck
 	 * 		<var>server</var> is the hostname or IP-Address and <var>port</var> 
 	 * 		the port of the whois-spam server to ask. Optionally it might be 
 	 * 		followed by a comma separated list of hostname patterns, which 
-	 * 		are also considered to be spam hosts.
+	 * 		are also considered to be spam hosts. Finally the comma separated 
+	 * 		list may contain a 'maxsize=N' parameter, whereby N defines the 
+	 *      maximum size of a message in byte, which should be scanned. {@code -1} 
+	 *      implies to scan all message (unlimited size) and {@code 0} effectively
+	 *      disables this filter. Default is 50K.
 	 * 		<p>
 	 * 		E.g. server:port|fallbackserver:port,hostnamePattern0,...
 	 */
@@ -128,6 +134,9 @@ public class WhoisCheck
 		return name;
 	}
 
+	/**
+	 * @see WhoisCheck#WhoisCheck(String)
+	 */
 	private boolean reconfigure(String serverPortPatterns, boolean throwEx) {
 		String msg = "whois-spam server:port address required";
 		if (serverPortPatterns == null) {
@@ -173,8 +182,14 @@ public class WhoisCheck
 		if (params.length > 1) {
 			for (int i=params.length-1; i > 0; i--) {
 				try {
-					Pattern p = Pattern.compile(params[i]);
-					pl.add(p);
+					if (params[i].startsWith("maxsize=")) {
+						int s = Integer.parseInt(params[i]
+						     .substring("maxsize=".length()).trim(), 10);
+						maxSize = s < 0 ? -1 : maxSize;
+					} else {
+						Pattern p = Pattern.compile(params[i]);
+						pl.add(p);
+					}
 				} catch (Exception e) {
 					log.warn(e.getLocalizedMessage());
 					if (log.isDebugEnabled()) {
@@ -482,8 +497,7 @@ public class WhoisCheck
 		ArrayList<URI> list = null;
 		boolean ok = true;
 		try {
-			// spam is usually <= 25KiB
-			if (message == null || message.getSize() > 50*1024) {
+			if (message == null || maxSize <= 0 || message.getSize() > maxSize) {
 				return null;
 			}
 			list = new ArrayList<URI>();
