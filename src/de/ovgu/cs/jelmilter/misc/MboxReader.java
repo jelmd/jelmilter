@@ -16,6 +16,7 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.io.PrintStream;
 import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.net.URI;
@@ -170,7 +171,7 @@ public class MboxReader {
 			} catch (Exception e) {
 				log.warn("msg " + count + " - " + e.getLocalizedMessage());
 				if (log.isDebugEnabled()) {
-					log.debug("method()", e);
+					log.debug("dumpObject()", e);
 				}
 			}
 		} else if (o instanceof InputStream) {
@@ -185,7 +186,7 @@ public class MboxReader {
 			} catch (IOException e) {
 				log.warn("msg " + count + " - " + e.getLocalizedMessage());
 				if (log.isDebugEnabled()) {
-					log.debug("method()", e);
+					log.debug("dumpObject()", e);
 				}
 			} finally {
 				try { in.close(); } catch (Exception x) { /* ignore */ }
@@ -203,7 +204,7 @@ public class MboxReader {
 			} catch (Exception e) {
 				log.warn("msg " + count + " - " + e.getLocalizedMessage());
 				if (log.isDebugEnabled()) {
-					log.debug("method()", e);
+					log.debug("dumpObject()", e);
 				}
 			}
 		} else {
@@ -246,7 +247,7 @@ public class MboxReader {
 			} catch (Exception e) {
 				log.warn("msg " + count + " - " + e.getLocalizedMessage());
 				if (log.isDebugEnabled()) {
-					log.debug("method()", e);
+					log.debug("dump()", e);
 				}
 			}
 			count++;
@@ -254,12 +255,28 @@ public class MboxReader {
 	}
 	
 	/**
+	 * Print Usage information for {@link #main(String[])}.
+	 * @param out	where to print the usage infos.
+	 */
+	public static void usage(PrintStream out) {
+		String EOL = System.getProperty("line.separator");
+		out.println(
+"Usage: java -cp ... MboxReader mboxFile [outfile]" + EOL + 
+EOL +
+"Reads in the given mbox formatted file and dumps the parts of each mail" + EOL +
+"to java.io.tmpdir/mail (default /tmp/mail). Last but not least URIs are " + EOL + 
+"extracted from plain text, html and xml message parts and printed to " + EOL +
+"the given outfile. If this parameter is ommited, it gets printed to stdout."
+);
+	}
+
+	/**
 	 * @param args
 	 * @throws IOException 
 	 */
 	public static void main(String[] args) throws IOException {
 		if (args.length < 1) {
-			System.err.println("Usage: java -cp ... MboxReader mboxFile [outfile]");
+			usage(System.err);
 			System.exit(1);
 		}
 		MboxReader mr = new MboxReader();
@@ -267,7 +284,7 @@ public class MboxReader {
 		ArrayList<URI> uriList = new ArrayList<URI>();
 		String tmpdir = System.getProperty("java.io.tmpdir");
 		if (tmpdir == null) {
-			tmpdir ="/tmp";
+			tmpdir = "/tmp";
 		}
 		File dir = new File(tmpdir, "mail");
 		log.info("dumping to " + dir);

@@ -88,9 +88,6 @@ public class Rule {
 					res = body(mail, macros);
 					break;
 			}
-			if (res && id != null) {
-				log.info("Rule \"{}\" matched", id);
-			}
 		} else if (rules != null) {
 			boolean shortCut = false;
 			for (int i=0; i < rules.length; i++) {
@@ -110,12 +107,15 @@ public class Rule {
 				res = and ? true : false;
 			}
 		}
+		if ((res ^ not) && id != null) {
+			log.info("Rule \"{}\" matched", id);
+		}
 		return not ? !res : res;
 	}
 	
 	private boolean mailFrom(String[] from) {
 		if (from == null) {
-			return not ? true : false;
+			return false;
 		}
 		boolean found = false;
 		if (find != null) {
@@ -135,12 +135,12 @@ public class Rule {
 				}
 			}
 		}
-		return not ? !found : found;
+		return found;
 	}
 
 	private boolean recipientTo(String[] to) {
 		if (to == null) {
-			return not ? true : false;
+			return false;
 		}
 		boolean found = false;
 		if (find != null) {
@@ -160,12 +160,12 @@ public class Rule {
 				}
 			}
 		}
-		return not ? !found : found;
+		return found;
 	}
 
 	private boolean header(List<Header> headers) {
 		if (headers == null || headers.size() == 0) {
-			return not ? true : false;
+			return false;
 		}
 		boolean found = false;
 		Matcher matcher = pattern != null ? pattern.matcher("") : null;
@@ -198,7 +198,7 @@ public class Rule {
 				}
 			}
 		}
-		return not ? !found : found;
+		return found;
 	}
 	
 	private boolean matchesContent(String contentType) {
@@ -341,7 +341,7 @@ public class Rule {
 	
 	private boolean body(Mail mail, HashMap<String,String> macros) {
 		if (mail == null) {
-			return not ? true : false;
+			return false;
 		}
 		boolean res = false;
 		try {
@@ -352,7 +352,7 @@ public class Rule {
 				log.debug("method()", e);
 			}
 		}
-		return not ? !res : res;
+		return res;
 	}
 	
 	/**

@@ -9,6 +9,7 @@
  */
 package de.ovgu.cs.jelmilter;
 
+import java.io.PrintStream;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.util.ArrayList;
@@ -462,13 +463,44 @@ public class HeloCheck
 	}
 	
 	/**
+	 * Usage information for {@link #main(String[])}.
+	 * @param out where to print the info.
+	 */
+	public static void usage(PrintStream out) {
+		String EOL = System.getProperty("line.separator");
+		out.println(
+"Usage: java -cp HeloCheck {[strict][:delayCheck][:ip=CIDR[,CIDR]*] \\" + EOL +
+"                           [:ehlo=domain[,domain]*][:fqhn=domain[,domain]* \\" + EOL +
+"                           [:skip4=account[,account]*]}  clientIP  helo_arg" + EOL +
+"  strict     .. Reject mail if neither the EHLOed hostname has a DNS A record " + EOL +
+"                with an IP of the talking client nor the client has an DNS MX " + EOL +
+"                entry which is equal to the EHLOed hostname." + EOL +
+"  delayCheck .. Postpone the final decision about mail rejection until " + EOL +
+"                RCPT TO cmd gets processed. Here if the client has " + EOL +
+"                authenticated itself or the recipient is part of a whitelist " + EOL +
+"                (see skip4) a possible reject decision gets discarded." + EOL +
+"  skip4=...  .. a comma separated whitelist of recipients, for which this " + EOL +
+"                check should be skipped." + EOL +
+"  ehlo=...   .. a comma separated whitelist of domains. If an EHLOed hostname" + EOL +
+"                ends with a domain given in this whitelist, mail gets accepted" + EOL +
+"  fqhn=...   .. a comma separated whitelist of domains. If the clients fully " + EOL +
+"                quallified host or domain name ends with a with a domain given" + EOL +
+"                in this whitelist, mail gets accepted" + EOL +
+"  ip=...     .. a comma separated whitelist of IPv4 addresses (CIDRs are ok" + EOL +
+"                as well). For all clients connecting with an IP from the list," + EOL +
+"                mail gets accepted. This should preferred over the other" + EOL +
+"                whitelist options (ehlo and fqhn)!" + EOL +
+"  clientIP   .. the simulated IPv4 address of the client" + EOL +
+"  helo_arg   .. the simulated EHLOed hostname sent by the client."
+);
+	}
+	
+	/**
 	 * @param args	{[strict:][delayCheck:][(FQHN|FQDN,)*]} clientIP helo_arg
 	 * @throws UnknownHostException 
 	 */
 	public static void main(String[] args) throws UnknownHostException {
 		if (args.length < 3) {
-			System.err.println("Usage: java -cp HeloCheck "
-				+ "{[strict][:delayCheck][:ip=(FQHN|FQDN,)*][:skip4=($account,)*]} clientIP helo_arg");
 			System.exit(1);
 		}
 		HeloCheck h = new HeloCheck(args[0]);

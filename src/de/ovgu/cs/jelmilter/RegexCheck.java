@@ -11,6 +11,7 @@ package de.ovgu.cs.jelmilter;
 
 import java.io.File;
 import java.io.IOException;
+import java.io.PrintStream;
 import java.util.ArrayList;
 import java.util.EnumSet;
 import java.util.Enumeration;
@@ -495,12 +496,29 @@ public class RegexCheck
 	}
 	
 	/**
+	 * Print usage info for {@link #main(String[])}.
+	 * @param out where to print
+	 */
+	public static void usage(PrintStream out) {
+		String EOL = System.getProperty("line.separator");
+		out.println(
+"Usage: java -cp ... RegexCheck mboxFile [configFile]" + EOL +
+EOL +
+"Parse the given mbox formatted file and apply the regex rules from the " + EOL +
+"the given config file. If no configFile is given, " + DEFAULT_CONFIG + EOL +
+"will be used instead." + EOL +
+"NOTE: Since messages are read from an mbox, envelope targets like " + EOL +
+"       rcpt_to, mail_from as well as macros are not available!"
+);
+	}
+
+	/**
 	 * @param args	0 .. the mbox file to read and scan, [1 .. the config file to use]
 	 * @throws IOException 
 	 */
 	public static void main(String[] args) throws IOException {
 		if (args.length < 1) {
-			System.err.println("Usage: java -cp ... RegexCheck mboxFile [configFile]");
+			usage(System.err);
 			System.exit(1);
 		}
 		RegexCheck rc = new RegexCheck(args.length > 1 ? args[1] : null);
@@ -515,11 +533,13 @@ public class RegexCheck
 		int count = 0;
 		for (Mail mail : mails) {
 			count++;
+			log.info("Checking message " + count + "...");
 			try {
+				ArrayList<Header> headers = null;
 				Packet p = null;
 				if (cmds.contains(Type.EOH)) {
 					Enumeration<?> h = mail.getAllHeaders();
-					ArrayList<Header> headers = new ArrayList<Header>();
+					headers = new ArrayList<Header>();
 					while (h.hasMoreElements()) {
 						headers.add((Header) h.nextElement());
 					}
@@ -532,10 +552,7 @@ public class RegexCheck
 					continue;
 				}
 				if (cmds.contains(Type.BODYEOB)) {
-					if (count == 12) {
-						log.info("bla");
-					}
-					List<Packet> l = rc.doEndOfMail(null, null, mail);
+					List<Packet> l = rc.doEndOfMail(headers, null, mail);
 					if (l != null) {
 						for (Packet lp : l) {
 							if (lp.getType() != de.ovgu.cs.milter4j.reply.Type.CONTINUE) {

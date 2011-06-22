@@ -10,5 +10,6 @@
 	<classpathentry kind="lib" path="lib/whois4j-1.1.0.jar"/>
 	<classpathentry kind="lib" path="etc"/>
 	<classpathentry kind="lib" path="lib/milter4j-1.1.2.jar" sourcepath="/milter4j"/>
+	<classpathentry kind="lib" path="lib/jutf7-1.0.0jel.jar"/>
 	<classpathentry kind="output" path="build/classes"/>
 </classpath>

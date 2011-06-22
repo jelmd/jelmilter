@@ -13,6 +13,7 @@ import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.PrintStream;
 import java.net.InetSocketAddress;
 import java.net.URI;
 import java.net.URISyntaxException;
@@ -584,16 +585,35 @@ public class WhoisCheck
 	}
 	
 	/**
+	 * Print out usage info for {@link #main(String[])}.
+	 * @param out where to print.
+	 */
+	public static void usage(PrintStream out) {
+		String EOL = System.getProperty("line.separator");
+		out.println(
+"Usage: java -cp ... WhoisCheck server:port[|server:port]*,pattern mboxFile" 
++ EOL + EOL +
+"  server   .. the IP or hostname of whois check server to ask" + EOL +
+"  port     .. the port of whois check server to ask" + EOL +
+"  pattern  .. a comma separated list of sub patterns:" + EOL +
+"              a) maxsize=bytes .. don't scan messages > than the given size" + EOL +
+"              b) hostname pattern .. if the hostname part of an URI matches" + EOL +
+"                 this pattern, the message gets rejected iommediatel without" + EOL +
+"                 asking the Whois check server" + EOL +
+"  mboxFile .. the mbox formatted file to scan" + EOL +
+EOL +
+"e.g.: mail.cs:40006|ra.iws:40006,maxsize=35000,kanaweb,intelligentfinance"
+);
+	}
+
+	/**
 	 * Read a mbox file and submit URLs found to the whois-spam server
 	 * @param args	0 .. server:port,pattern,... 1 .. mbox file to read
 	 * @throws IOException 
 	 */
 	public static void main(String[] args) throws IOException {
 		if (args.length < 2) {
-			log.warn("Usage: java -cp ... " 
-				+ "WhoisCheck server:port[|server:port],pattern,... mboxFile"
-				+ System.getProperty("line.separator")
-				+ "e.g.: mail.cs:40006|ra.iws:40006,kanaweb,cimail15,intelligentfinance");
+			usage(System.err);
 			System.exit(1);
 		}
 		WhoisCheck checker = new WhoisCheck(args[0]);
