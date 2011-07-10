@@ -280,30 +280,24 @@ public class WhoisCheck
 
 	private boolean checkObject(Object o, ContentType contentType, 
 		List<URI> uriList, HashMap<String,String> macros)
+		throws MessagingException, IOException
 	{
 		if (o instanceof String) {
 			String s = o.toString();
 			findURIs(s, uriList);
 			return true;
 		} else if (o instanceof MimeMultipart) {
-			try {
-				MimeMultipart part = (MimeMultipart) o;
-				int idx = part.getCount();
-				for (int i=0; i < idx; i++) {
-					BodyPart bp = part.getBodyPart(i);
-					if (!checkObject(bp.getContent(), bp.getContentTypeObj(), 
-						uriList, macros)) 
-					{
-						return false;
-					}
-				}
-				return true;
-			} catch (Exception e) {
-				log.warn(getLogInfo(macros) +  e.getLocalizedMessage());
-				if (log.isDebugEnabled()) {
-					log.debug("checkObject()", e);
+			MimeMultipart part = (MimeMultipart) o;
+			int idx = part.getCount();
+			for (int i=0; i < idx; i++) {
+				BodyPart bp = part.getBodyPart(i);
+				if (!checkObject(bp.getContent(), bp.getContentTypeObj(), 
+					uriList, macros)) 
+				{
+					return false;
 				}
 			}
+			return true;
 		} else if (o instanceof InputStream) {
 			String ext = contentType == null ? "" : contentType.getSubType();
 			if ((contentType != null && contentType.getPrimaryType().equals("text"))
@@ -331,7 +325,7 @@ public class WhoisCheck
 			}
 			if (log.isDebugEnabled()) {
 				log.debug(getLogInfo(macros) + "Skipping URI search for " 
-					+ contentType);
+					+ ContentType.normalize(contentType));
 			}
 			return  true;
 		} else if (o instanceof MimeMessage) {
@@ -460,6 +454,10 @@ public class WhoisCheck
 		buf.append("'  ");
 		return buf.toString();
 	}
+	private static ReplyPacket createReplyMaleformedMsg() {
+		return new ReplyPacket(554, "5.7.1", 
+			"Invalid message format - strict RFC compliance required");
+	}
 
 	/**
 	 * Scan the message for URLs, collect them and submit them to the configured
@@ -479,20 +477,20 @@ public class WhoisCheck
 			list = new ArrayList<URI>();
 			ok = checkObject(message.getContent(), message.getContentTypeObj(), 
 				list, macros);
-		} catch (IOException e) {
-			log.warn(getLogInfo(macros) + e.getLocalizedMessage());
-			log.debug("doEndOfMail()", e);
-			ok = false;
-		} catch (MessagingException e) {
+		} catch (Exception e) {
+			if (e instanceof IOException) {
+				Throwable cause = e.getCause();
+				if (cause instanceof MessagingException) {
+					e = (Exception) cause;
+				}
+			}
 			log.warn(getLogInfo(macros) + e.getLocalizedMessage());
 			log.debug("doEndOfMail()", e);
 			ok = false;
 		}
 		if (!ok) {
 			ArrayList<Packet> rlist = new ArrayList<Packet>();
-			Packet p = new ReplyPacket(550, "5.7.1", "e-mail format error");
-			log.info(getLogInfo(macros) +  "e-mail format error");
-			rlist.add(p);
+			rlist.add(createReplyMaleformedMsg());
 			return rlist;
 		}
 		Packet p = null;
