@@ -29,7 +29,8 @@ export LC_CTYPE=de_DE
 
 Usage() {
 cat<<EOF
-Usage: ${0} [-h] [-r mbox [config]] [-e args] [-w srvPattern mbox] [-m mbox] [-v]
+Usage: ${0} [-h] [-r mbox [config]] [-e args] [-w srvPattern mbox] [-m mbox] \ 
+            [-v] [-L file]
             [shutdown]
 
     -h                 print this help and exit
@@ -38,8 +39,11 @@ Usage: ${0} [-h] [-r mbox [config]] [-e args] [-w srvPattern mbox] [-m mbox] [-v
                        gets printed explaining the args and formats.
     -w srvPattern mbox make a whois-spam check and exit. srvPattern has the 
                        format: whoisServer:port[|whoisServer:port]*[,pattern]*
-	-m mbox            just read a mbox file and exit
-	-v                 print version and exit
+    -m mbox            just read a mbox file, dump its content as separate 
+                       parts and exit
+    -L file            Use file for logging configuration. Must be a logback
+                       XML configuration file.
+    -v                 print version and exit
 EOF
 }
 
@@ -59,7 +63,7 @@ if [ -z "$JVM_FLAGS" ]; then
 	JVM_FLAGS=" "
 fi
 
-while getopts "hwermv" option ; do
+while getopts "hwermvL:" option ; do
 	case "$option" in
 		h) Usage; exit 0 ;;
 		r) START_CLASS=de.ovgu.cs.jelmilter.RegexCheck ;;
@@ -67,6 +71,7 @@ while getopts "hwermv" option ; do
 		w) START_CLASS=de.ovgu.cs.jelmilter.WhoisCheck ;;
 		m) START_CLASS=de.ovgu.cs.jelmilter.misc.MboxReader ;;
 		v) START_CLASS=de.ovgu.cs.jelmilter.Version;;
+		L) JVM_FLAGS="$JVM_FLAGS -Dlogback.config-file=$OPTARG" ;;
 	esac
 done	
 X=$((OPTIND-1))

@@ -33,6 +33,9 @@ import de.ovgu.cs.milter4j.reply.Packet;
 import de.ovgu.cs.milter4j.reply.ReplyPacket;
 
 /**
+ * MailFilter which verifies the connection endpoint (mail server) against its
+ * submitted [E]HLO parameters.
+ * 
  * @author 	Jens Elkner
  * @version	$Revision$
  */
@@ -332,7 +335,7 @@ public class HeloCheck
 		return null;
 	}
 
-	private boolean domainIsMX(String domain, InetAddress addr) {
+	private static boolean domainIsMX(String domain, InetAddress addr) {
 		// allow, that the EHLO name is an MX for the given client address
 		try {
 			String aname = addr.getHostName();

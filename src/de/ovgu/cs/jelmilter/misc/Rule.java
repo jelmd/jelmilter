@@ -21,8 +21,11 @@ import java.util.regex.Pattern;
 
 import javax.mail.BodyPart;
 import javax.mail.Header;
+import javax.mail.MessagingException;
+import javax.mail.internet.ContentType;
 import javax.mail.internet.MimeMessage;
 import javax.mail.internet.MimeMultipart;
+import javax.mail.internet.ParseException;
 import javax.xml.stream.XMLStreamConstants;
 import javax.xml.stream.XMLStreamException;
 import javax.xml.stream.XMLStreamReader;
@@ -51,6 +54,7 @@ public class Rule {
 	private Pattern pattern;
 	private String[] keys;
 	private EnumSet<Source> allSources;
+	private ContentTypeMatcher ctMatcher;
 
 	/**
 	 * Evaluate the rule.
@@ -65,9 +69,12 @@ public class Rule {
 	 * @param mail		the reassebled mail
 	 * @return a continue packet, if the rule does not match, the proper
 	 * 		packet associated with the configured action otherwise.
+	 * @throws IOException 
+	 * @throws MessagingException 
 	 */
 	public boolean eval(String[] from, String[] rcpts, 
-		HashMap<String,String> macros, List<Header> headers, Mail mail)
+		HashMap<String,String> macros, List<Header> headers, Mail mail) 
+		throws MessagingException, IOException
 	{
 		boolean res = false;
 		if (isSimple()) {
@@ -163,6 +170,7 @@ public class Rule {
 		return found;
 	}
 
+	@SuppressWarnings("null")
 	private boolean header(List<Header> headers) {
 		if (headers == null || headers.size() == 0) {
 			return false;
@@ -201,20 +209,14 @@ public class Rule {
 		return found;
 	}
 	
-	private boolean matchesContent(String contentType) {
-		String lower = contentType.toLowerCase();
-		for (int i=keys.length-1; i >= 0; i--) {
-			if (lower.startsWith(keys[i])) {
-				return true;
-			}
-		}
-		return false;
-	}
-	
-	private static final String fixContentType(String contentType) {
-		return (contentType == null) 
-			? "\"\""
-			: contentType.replaceAll("\\s+", " ").trim();
+	/**
+	 * Convinience method to extract a message ID from the macros.
+	 * @param macros	set of macros to scan. Might be {@code null}.
+	 * @return a message ID string, which contains the ID 'null', if no
+	 * 	appropriate macro is available.
+	 */
+	public static String getMessageID(HashMap<String,String> macros) {
+		return " - MID: " + ((macros == null) ? "null" : macros.get("Mi")) + " - ";
 	}
 
 	/**
@@ -225,22 +227,27 @@ public class Rule {
 	 * @param contentType	content type of the object (mail part) to check
 	 * @param macros	macros collected by the milter
 	 * @return {@code true} if a match occured
+	 * @throws MessagingException 
+	 * @throws IOException 
 	 */
-	private boolean checkMailObject(Object o, String contentType,
+	private boolean checkMailObject(Object o, ContentType contentType,
 		HashMap<String,String> macros) 
+		throws MessagingException, IOException 
 	{
 		if (o instanceof String) {
-			if (matchesContent(contentType)) {
+			if (ctMatcher.matches(contentType)) {
 				String txt = o.toString().trim();
 				if (find != null) {
 					int res = txt.indexOf(find);
 					if (res != -1) {
 						if (log.isDebugEnabled()) {
 							log.debug("Found in '{}' body: '{}'", 
-								fixContentType(contentType), toString());
+								ContentTypeMatcher.normalize(contentType), 
+								toString());
 						} else {
 							log.info("Found in '{}' body: '{}'", 
-								fixContentType(contentType), find);
+								ContentTypeMatcher.normalize(contentType),
+								find);
 						}
 						return true;
 					}
@@ -249,36 +256,34 @@ public class Rule {
 				Matcher m = pattern.matcher(txt);
 				if (m.find()) {
 					if (log.isDebugEnabled()) {
-						log.debug("Match in '" + fixContentType(contentType)
+						log.debug("Match in '" 
+							+ ContentTypeMatcher.normalize(contentType)
 							+ "' body: '" + m.group() + "'\n\t" + toString());
 					} else {
 						log.info("Match in '{}' body: '{}'", 
-							fixContentType(contentType), m.group());
+							ContentTypeMatcher.normalize(contentType), 
+							m.group());
 					}
 					return true;
 				}
 			}
 			return false;
 		} else if (o instanceof MimeMultipart) {
-			try {
-				MimeMultipart part = (MimeMultipart) o;
-				int idx = part.getCount();
-				for (int i=0; i < idx; i++) {
-					BodyPart bp = part.getBodyPart(i);
-					if (checkMailObject(bp.getContent(), bp.getContentType(),
-						macros)) 
-					{
-						return true;
-					}
-				}
-			} catch (Exception e) {
-				log.warn("MID: " + macros.get("Mi") + " " + e.getLocalizedMessage());
-				if (log.isDebugEnabled()) {
-					log.debug("method()", e);
+			MimeMultipart part = (MimeMultipart) o;
+			int idx = part.getCount();
+			for (int i=0; i < idx; i++) {
+				BodyPart bp = part.getBodyPart(i);
+				if (checkMailObject(bp.getContent(), bp.getContentTypeObj(),
+					macros)) 
+				{
+					return true;
 				}
 			}
 		} else if (o instanceof InputStream) {
-			if (matchesContent(contentType)) {
+			if (ctMatcher.matches(contentType)) {
+				if (find != null && find.isEmpty()) {
+					return true;
+				}
 				InputStream in = (InputStream) o;
 				ByteArrayOutputStream bos = new ByteArrayOutputStream(4096);
 				byte[] dst = new byte[4096];
@@ -288,23 +293,26 @@ public class Rule {
 						bos.write(dst, 0, read);
 					}
 				} catch (IOException e) {
-					log.warn("MID: " + macros.get("Mi") + " " + e.getLocalizedMessage());
+					log.warn("InputStream error " + getMessageID(macros) 
+						+ e.getLocalizedMessage());
 					if (log.isDebugEnabled()) {
-						log.debug("method()", e);
+						log.debug("checkMailObject()", e);
 					}
 				} finally {
 					try { in.close(); } catch (Exception x) { /* ignore */ }
 				}
-				String txt = new String(bos.toByteArray());
+				String txt = ContentTypeMatcher.convert(contentType, bos.toByteArray());
 				if (find != null) {
 					int res = txt.indexOf(find);
 					if (res != -1) {
 						if (log.isDebugEnabled()) {
 							log.debug("Found in '{}' body: '{}'", 
-								fixContentType(contentType), toString());
+								ContentTypeMatcher.normalize(contentType),
+								toString());
 						} else {
 							log.info("Found in '{}' body: '{}'", 
-								fixContentType(contentType), find);
+								ContentTypeMatcher.normalize(contentType),
+								find);
 						}
 						return true;
 					}
@@ -313,45 +321,37 @@ public class Rule {
 				Matcher m = pattern.matcher(txt);
 				if (m.find()) {
 					if (log.isDebugEnabled()) {
-						log.debug("Match in '" + fixContentType(contentType)
+						log.debug("Match in '" 
+							+ ContentTypeMatcher.normalize(contentType)
 							+ "' body: '" + m.group() + "'\n\t" + toString());
 					} else {
 						log.info("Match in '{}' body: '{}'", 
-							fixContentType(contentType), m.group());
+							ContentTypeMatcher.normalize(contentType), 
+							m.group());
 					}
 					return true;
 				}
 			}
 		} else if (o instanceof MimeMessage) {
 			MimeMessage m = (MimeMessage) o;
-			try {
-				return checkMailObject(m.getContent(), m.getContentType(), macros);
-			} catch (Exception e) {
-				log.warn("MID: " + macros.get("Mi") + " " + e.getLocalizedMessage());
-				if (log.isDebugEnabled()) {
-					log.debug("method()", e);
-				}
-			}
+			return checkMailObject(m.getContent(), m.getContentTypeObj(), 
+					macros);
 		} else {
 			log.warn("Unable to handle msg " + o.getClass().getSimpleName() 
-				+ " " + contentType + " MID: " + macros.get("Mi"));
+				+ " " + ContentTypeMatcher.normalize(contentType) 
+				+ " " + getMessageID(macros));
 		}
 		return false;
 	}
 	
-	private boolean body(Mail mail, HashMap<String,String> macros) {
+	private boolean body(Mail mail, HashMap<String,String> macros)
+		throws MessagingException, IOException 
+	{
 		if (mail == null) {
 			return false;
 		}
-		boolean res = false;
-		try {
-			res = checkMailObject(mail.getContent(), mail.getContentType(), macros);
-		} catch (Exception e) {
-			log.warn("MID:" + macros.get("Mi") + " " + e.getLocalizedMessage());
-			if (log.isDebugEnabled()) {
-				log.debug("method()", e);
-			}
-		}
+		boolean res = checkMailObject(mail.getContent(), 
+			mail.getContentTypeObj(), macros);
 		return res;
 	}
 	
@@ -443,9 +443,28 @@ public class Rule {
 			} else if (source == Source.BODY) {
 				tmp = in.getAttributeValue(null, "type");
 				if (tmp != null && tmp.length() > 0) {
-					keys = tmp.split(",");
-				} else {
-					keys = new String[] { "text/" };
+					try {
+						ctMatcher = new ContentTypeMatcher(tmp);
+					} catch (ParseException e) {
+						log.warn("Invalid content type value for src ('" 
+							+ ContentTypeMatcher.normalize(tmp) 
+							+ "') - falling back to text/* instead: "
+							+ e.getLocalizedMessage());
+						if (log.isDebugEnabled()) {
+							log.debug("fromXml()", e);
+						}
+					}
+				}
+				if (ctMatcher == null) {
+					try {
+						ctMatcher = new ContentTypeMatcher("text/*");
+					} catch (ParseException e1) {
+						log.error("Invalid content type 'text/*': " 
+							+ e1.getLocalizedMessage());
+						if (log.isDebugEnabled()) {
+							log.debug("fromXml()", e1);
+						}
+					}
 				}
 			}
 			tmp = in.getElementText();
@@ -502,6 +521,9 @@ public class Rule {
 				buf.append(s.name()).append(',');
 			}
 			buf.setLength(buf.length()-1);
+		}
+		if (ctMatcher != null) {
+			buf.append(";contentType[").append(ctMatcher.toString()).append(']');
 		}
 		if (isSimple()) {
 			buf.append(';');

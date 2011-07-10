@@ -9,11 +9,13 @@
  */
 package de.ovgu.cs.jelmilter.misc;
 
+import java.io.IOException;
 import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.List;
 
 import javax.mail.Header;
+import javax.mail.MessagingException;
 import javax.xml.stream.XMLStreamConstants;
 import javax.xml.stream.XMLStreamException;
 import javax.xml.stream.XMLStreamReader;
@@ -62,9 +64,12 @@ public class RuleSet {
 	 * @param mail		the reassebled mail
 	 * @return a continue packet, if the rule does not match, the proper
 	 * 		packet associated with the configured action otherwise.
+	 * @throws IOException 
+	 * @throws MessagingException 
 	 */
 	public Packet eval(String[] from, String[] rcpts, 
-		HashMap<String,String> macros, List<Header> headers, Mail mail)
+		HashMap<String,String> macros, List<Header> headers, Mail mail) 
+		throws MessagingException, IOException
 	{
 		if (rule == null || !rule.eval(from, rcpts, macros, headers, mail)) {
 			return new ContinuePacket();

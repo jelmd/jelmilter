@@ -30,12 +30,14 @@ import java.util.regex.Pattern;
 import javax.mail.BodyPart;
 import javax.mail.Header;
 import javax.mail.MessagingException;
+import javax.mail.internet.ContentType;
 import javax.mail.internet.MimeMessage;
 import javax.mail.internet.MimeMultipart;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import de.ovgu.cs.jelmilter.misc.ContentTypeMatcher;
 import de.ovgu.cs.jelmilter.misc.MboxReader;
 import de.ovgu.cs.milter4j.MailFilter;
 import de.ovgu.cs.milter4j.cmd.Type;
@@ -257,7 +259,7 @@ public class WhoisCheck
 			} catch (URISyntaxException e) {
 				log.warn(e.getLocalizedMessage());
 				if (log.isDebugEnabled()) {
-					log.debug("method()", e);
+					log.debug("findURIs()", e);
 				}
 			}
 		}
@@ -270,41 +272,14 @@ public class WhoisCheck
 			} catch (URISyntaxException e) {
 				log.warn(e.getLocalizedMessage());
 				if (log.isDebugEnabled()) {
-					log.debug("method()", e);
+					log.debug("findURIs()", e);
 				}
 			}
 		}
 	}
 
-	private String getContentTypeClean(String ct) {
-		return ct.replaceAll("\\n|\\r|\\t", " ").replaceAll("  +", " ");
-	}
-
-	/**
-	 * Extract the extension from the MIMEMessage content type header value. 
-	 * @param contentType	the content type of the mime message
-	 * @return a normalized string, which might be used as an 
-	 * 		extension when dumping the mime part to a file.
-	 */
-	public static String getExtension(String contentType) {
-		String[] tmp = contentType.split(";");
-		int idx = tmp[0].lastIndexOf('/');
-		char[] ext = (idx != -1) 
-			? tmp[0].substring(idx+1).toCharArray()
-			: tmp[0].toCharArray();
-		StringBuilder buf = new StringBuilder();
-		for (int i=0; i < ext.length; i++) {
-			if (Character.isJavaIdentifierPart(ext[i])) {
-				buf.append(ext[i]);
-			} else {
-				buf.append('_');
-			}
-		}
-		return buf.toString().toLowerCase();
-	}
-
-	private boolean checkObject(Object o, String contentType, List<URI> uriList,
-		HashMap<String,String> macros)
+	private boolean checkObject(Object o, ContentType contentType, 
+		List<URI> uriList, HashMap<String,String> macros)
 	{
 		if (o instanceof String) {
 			String s = o.toString();
@@ -316,7 +291,7 @@ public class WhoisCheck
 				int idx = part.getCount();
 				for (int i=0; i < idx; i++) {
 					BodyPart bp = part.getBodyPart(i);
-					if (!checkObject(bp.getContent(), bp.getContentType(), 
+					if (!checkObject(bp.getContent(), bp.getContentTypeObj(), 
 						uriList, macros)) 
 					{
 						return false;
@@ -326,12 +301,12 @@ public class WhoisCheck
 			} catch (Exception e) {
 				log.warn(getLogInfo(macros) +  e.getLocalizedMessage());
 				if (log.isDebugEnabled()) {
-					log.debug("method()", e);
+					log.debug("checkObject()", e);
 				}
 			}
 		} else if (o instanceof InputStream) {
-			String ext = getExtension(contentType);
-			if (ext.equals("plain") || ext.equals("html") || ext.equals("xml")
+			String ext = contentType == null ? "" : contentType.getSubType();
+			if ((contentType != null && contentType.getPrimaryType().equals("text"))
 				|| ext.equals("partial")) 
 			{
 				InputStream in = (InputStream) o;
@@ -345,34 +320,34 @@ public class WhoisCheck
 				} catch (IOException e) {
 					log.warn(getLogInfo(macros) + e.getLocalizedMessage());
 					if (log.isDebugEnabled()) {
-						log.debug("method()", e);
+						log.debug("checkObject()", e);
 					}
 				} finally {
 					try { in.close(); } catch (Exception x) { /* ignore */ }
 				}
-				findURIs(new String(bos.toByteArray()), uriList);
+				String txt = ContentTypeMatcher.convert(contentType, bos.toByteArray());
+				findURIs(txt, uriList);
 				return true;
 			}
 			if (log.isDebugEnabled()) {
 				log.debug(getLogInfo(macros) + "Skipping URI search for " 
-					+ getContentTypeClean(contentType));
+					+ contentType);
 			}
 			return  true;
 		} else if (o instanceof MimeMessage) {
 			MimeMessage m = (MimeMessage) o;
 			try {
-				return checkObject(m.getContent(), m.getContentType(), uriList,
-					macros);
+				return checkObject(m.getContent(), m.getContentTypeObj(), 
+					uriList, macros);
 			} catch (Exception e) {
 				log.warn(getLogInfo(macros) + e.getLocalizedMessage());
 				if (log.isDebugEnabled()) {
-					log.debug("method()", e);
+					log.debug("checkObject()", e);
 				}
 			}
 		}
 		log.warn(getLogInfo(macros) + "Unable to handle msg " 
-			+ o.getClass().getSimpleName() + " " 
-			+ getContentTypeClean(contentType));
+			+ o.getClass().getSimpleName() + " " + contentType);
 		return false;
 	}
 	
@@ -463,7 +438,7 @@ public class WhoisCheck
 		}
 	}
 
-	private String getLogInfo(HashMap<String, String> macros) {
+	private static String getLogInfo(HashMap<String, String> macros) {
 		if (macros == null) {
 			return "to='' from='' via='' ";
 		}
@@ -502,7 +477,7 @@ public class WhoisCheck
 				return null;
 			}
 			list = new ArrayList<URI>();
-			ok = checkObject(message.getContent(), message.getContentType(), 
+			ok = checkObject(message.getContent(), message.getContentTypeObj(), 
 				list, macros);
 		} catch (IOException e) {
 			log.warn(getLogInfo(macros) + e.getLocalizedMessage());

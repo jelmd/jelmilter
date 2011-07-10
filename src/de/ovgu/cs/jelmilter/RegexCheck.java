@@ -33,6 +33,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import de.ovgu.cs.jelmilter.misc.MboxReader;
+import de.ovgu.cs.jelmilter.misc.Rule;
 import de.ovgu.cs.jelmilter.misc.RuleSet;
 import de.ovgu.cs.jelmilter.misc.Source;
 import de.ovgu.cs.milter4j.MailFilter;
@@ -40,6 +41,7 @@ import de.ovgu.cs.milter4j.cmd.Type;
 import de.ovgu.cs.milter4j.reply.AcceptPacket;
 import de.ovgu.cs.milter4j.reply.ContinuePacket;
 import de.ovgu.cs.milter4j.reply.Packet;
+import de.ovgu.cs.milter4j.reply.ReplyPacket;
 import de.ovgu.cs.milter4j.util.Mail;
 import de.ovgu.cs.milter4j.util.Misc;
 
@@ -255,7 +257,22 @@ public class RegexCheck
 				}
 			}
 		}
-		return eval(Source.MAIL_FROM, from, null, null, null, null);
+		try {
+			return eval(Source.MAIL_FROM, from, null, null, null, null);
+		} catch (Exception e) {
+			if (e instanceof IOException) {
+				Throwable cause = e.getCause();
+				if (cause instanceof MessagingException) {
+					e = (Exception) cause;
+				}
+			}
+			log.warn("doMailFrom" + Rule.getMessageID(macros) 
+				+ e.getLocalizedMessage());
+			if (log.isDebugEnabled()) {
+				log.debug("doRecipientTo", e);
+			}
+		}
+		return createReplyMaleformedMsg();
 	}
 	
 	private String getLogInfo(HashMap<String, String> macros) {
@@ -292,6 +309,7 @@ public class RegexCheck
 
 	private Packet eval(Source current, String[] from, String[] rcpts, 
 		HashMap<String,String> macros, List<Header> headers, Mail mail)
+		throws MessagingException, IOException
 	{
 		EnumSet<Source> tilNow = EnumSet.range(Source.MAIL_FROM, current);
 		// go as far as we can
@@ -316,6 +334,11 @@ public class RegexCheck
 		return new ContinuePacket();		
 	}
 
+	private static ReplyPacket createReplyMaleformedMsg() {
+		return new ReplyPacket(554, "5.7.1", 
+			"Invalid message format - strict RFC compliance required");
+	}
+
 	/**
 	 * {@inheritDoc}
 	 */
@@ -326,7 +349,22 @@ public class RegexCheck
 			return null;
 		}
 		recipientsTo = recipient;
-		return eval(Source.RCPT_TO, mailFrom, recipientsTo, null, null, null);
+		try {
+			return eval(Source.RCPT_TO, mailFrom, recipientsTo, null, null, null);
+		} catch (Exception e) {
+			if (e instanceof IOException) {
+				Throwable cause = e.getCause();
+				if (cause instanceof MessagingException) {
+					e = (Exception) cause;
+				}
+			}
+			log.warn("doRecipientTo" + Rule.getMessageID(macros) 
+				+ e.getLocalizedMessage());
+			if (log.isDebugEnabled()) {
+				log.debug("doRecipientTo", e);
+			}
+		}
+		return createReplyMaleformedMsg();
 	}
 
 	/**
@@ -339,7 +377,23 @@ public class RegexCheck
 		if (maxSize == 0) {
 			return null;
 		}
-		return eval(Source.HEADER, mailFrom, recipientsTo, macros, headers, null);
+		try {
+			return eval(Source.HEADER, mailFrom, recipientsTo, macros, headers, 
+				null);
+		} catch (Exception e) {
+			if (e instanceof IOException) {
+				Throwable cause = e.getCause();
+				if (cause instanceof MessagingException) {
+					e = (Exception) cause;
+				}
+			}
+			log.warn("doEndOfHeader" + Rule.getMessageID(macros) 
+				+ e.getLocalizedMessage());
+			if (log.isDebugEnabled()) {
+				log.debug("doEndOfHeader", e);
+			}
+		}
+		return createReplyMaleformedMsg();
 	}
 	
 	/**
@@ -369,7 +423,18 @@ public class RegexCheck
 		try {
 			p = eval(Source.BODY, mailFrom, recipientsTo, macros, headers, mail);
 		} catch (Exception e) {
-			log.warn("doEndOfMail - " + this.toString(), e);
+			if (e instanceof IOException) {
+				Throwable cause = e.getCause();
+				if (cause instanceof MessagingException) {
+					e = (Exception) cause;
+				}
+			}
+			log.warn("doEndOfMail" + Rule.getMessageID(macros) 
+				+ e.getLocalizedMessage());
+			if (log.isDebugEnabled()) {
+				log.debug("doEndOfMail", e);
+			}
+			p = createReplyMaleformedMsg();
 		}
 		if (p != null) {
 			l.add(p);
@@ -462,7 +527,7 @@ public class RegexCheck
 							} catch (IOException e) {
 								log.warn(e.getLocalizedMessage());
 								if (log.isDebugEnabled()) {
-									log.debug("method()", e);
+									log.debug("fromXml()", e);
 								}
 								continue;
 							}
@@ -565,7 +630,7 @@ EOL +
 			} catch (MessagingException e) {
 				log.warn(e.getLocalizedMessage());
 				if (log.isDebugEnabled()) {
-					log.debug("method()", e);
+					log.debug("main()", e);
 				}
 			}
 		}

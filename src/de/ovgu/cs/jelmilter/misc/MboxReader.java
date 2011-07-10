@@ -20,14 +20,18 @@ import java.io.PrintStream;
 import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.net.URI;
+import java.nio.charset.Charset;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
+import java.util.Locale;
+import java.util.Map.Entry;
 import java.util.TreeMap;
 import java.util.TreeSet;
-import java.util.Map.Entry;
 
 import javax.mail.BodyPart;
 import javax.mail.MessagingException;
+import javax.mail.internet.ContentType;
 import javax.mail.internet.MimeMessage;
 import javax.mail.internet.MimeMultipart;
 import javax.mail.util.SharedByteArrayInputStream;
@@ -49,13 +53,23 @@ public class MboxReader {
 	private static final Logger log = LoggerFactory
 		.getLogger(MboxReader.class);
 
+	private boolean hexDump;
+
 	/**
 	 * Empty init.
 	 */
 	public MboxReader() {
-		// later
+		this(false);
 	}
-	
+
+	/**
+	 * Empty init.
+	 * @param hexdump if {@code true} dump text files as hex as well.
+	 */
+	public MboxReader(boolean hexdump) {
+		this.hexDump = hexdump;
+	}
+
 	/**
 	 * Read an mbox file.
 	 * <p>
@@ -108,7 +122,7 @@ public class MboxReader {
 					} catch (MessagingException e) {
 						log.warn(e.getLocalizedMessage());
 						if (log.isDebugEnabled()) {
-							log.debug("method()", e);
+							log.debug("read()", e);
 						}
 					}
 					eol = i+from.length;
@@ -127,14 +141,14 @@ public class MboxReader {
 		} catch (MessagingException e) {
 			log.warn(e.getLocalizedMessage());
 			if (log.isDebugEnabled()) {
-				log.debug("method()", e);
+				log.debug("read()", e);
 			}
 		}
 		log.info("found " + msg.size() + " messages");
 		return msg;
 	}
 	
-	private void dump(File file, byte[] content) {
+	private static void dump(File file, byte[] content) {
 		FileOutputStream fos = null; 
 		try {
 			fos = new FileOutputStream(file);
@@ -142,7 +156,7 @@ public class MboxReader {
 		} catch (IOException e) {
 			log.warn(e.getLocalizedMessage());
 			if (log.isDebugEnabled()) {
-				log.debug("method()", e);
+				log.debug("dump()", e);
 			}
 		} finally {
 			if (fos != null) {
@@ -150,14 +164,99 @@ public class MboxReader {
 			}
 		}
 	}
-	
+
+	private static final int PUNCT_MASK =  
+		  (1 << Character.START_PUNCTUATION) 
+        | (1 << Character.CONNECTOR_PUNCTUATION) 
+        | (1 << Character.DASH_PUNCTUATION) 
+        | (1 << Character.END_PUNCTUATION) 
+        | (1 << Character.FINAL_QUOTE_PUNCTUATION)
+        | (1 << Character.INITIAL_QUOTE_PUNCTUATION)
+        | (1 << Character.OTHER_PUNCTUATION)
+        ;
+
+	private static final int MISC_MASK =  
+		(1 << Character.CURRENCY_SYMBOL)
+		| (1 << Character.OTHER_SYMBOL)
+		| (1 << Character.OTHER_LETTER)
+		| (1 << Character.MODIFIER_LETTER)
+		;
+
+      private static boolean isPunct(char c) {
+        int type = Character.getType(c);
+        return (type & PUNCT_MASK) != 0;
+    }
+
+    private static boolean isGraph(char c) {
+        return Character.isLetterOrDigit(c) || isPunct(c) 
+        	|| ((Character.getType(c) & MISC_MASK) != 0);
+    }
+
+	private static char printable(char c) {
+		return isGraph(c) ? c : ' ';
+	}
+
+	@SuppressWarnings("boxing")
+	private static void dumpHex(File file, String content) {
+		PrintWriter out = null; 
+		try {
+			out = new PrintWriter(file, "UTF-8");
+			char[] c = content.toCharArray();
+			int rem = c.length & 0x07;
+			int last = c.length - rem;
+			Character[] p = new Character[8];
+			for (int i=0; i < last; i += 8) {
+				for (int k=0; k < 8; k++) {
+					p[k] = printable(c[i+k]);
+				}
+				out.printf("%c %c %c %c  %c %c %c %c    "
+					+ "%04x %04x %04x %04x  %04x %04x %04x %04x%n",
+					p[0],p[1],p[2],p[3], p[4],p[5],p[6],p[7],
+					Integer.valueOf(c[i]),Integer.valueOf(c[i+1]),
+					Integer.valueOf(c[i+2]),Integer.valueOf(c[i+3]), 
+					Integer.valueOf(c[i+4]),Integer.valueOf(c[i+5]),
+					Integer.valueOf(c[i+6]),Integer.valueOf(c[i+7]));
+			}
+			if (rem == 0) {
+				return;
+			}
+			char[] l = new char[8*2+1+4+8*5+2];
+			Arrays.fill(l, ' ');
+			l[l.length-1] = '\n';
+			int offset = c.length - rem;
+			for (int i=0, k=8*2+1+4; i < rem; i+=2, k+=5, offset++) {
+				l[i] = printable(c[offset]);
+				char[] val = String.format(Locale.US, "%04x", 
+					Integer.valueOf(c[offset])).toCharArray();
+				System.arraycopy(val, 0, l, k, 4);
+				if (i == 6) {
+					i++; k++;
+				}
+			}
+			out.write(l);
+		} catch (IOException e) {
+			log.warn(e.getLocalizedMessage());
+			if (log.isDebugEnabled()) {
+				log.debug("dumpHex()", e);
+			}
+		} finally {
+			if (out != null) {
+				try { out.close(); } catch (Exception e) { /* ignore */ }
+			}
+		}
+	}
+
 	private void dumpObject(File dir, String prefix, int count, Object o,
-		String contentType, List<URI> uriList) 
+		ContentType contentType, List<URI> uriList) 
 	{
-		log.info(contentType);
+		log.info(ContentTypeMatcher.normalize(contentType));
 		if (o instanceof String) {
 			String s = o.toString();
-			dump(new File(dir, prefix + ".txt"), s.getBytes());
+			dump(new File(dir, prefix + ".txt"), 
+				s.getBytes(Charset.forName("UTF-8")));
+			if (hexDump) {
+				dumpHex(new File(dir, prefix + ".txt-hex"), s);
+			}
 			WhoisCheck.findURIs(s, uriList);
 		} else if (o instanceof MimeMultipart) {
 			try {
@@ -165,10 +264,31 @@ public class MboxReader {
 				int idx = part.getCount();
 				for (int i=0; i < idx; i++) {
 					BodyPart bp = part.getBodyPart(i);
+					ContentType ct = null;
+					try {
+						ct = bp.getContentTypeObj();
+					} catch (Exception e) {
+						if (e instanceof IOException) {
+							Throwable cause = e.getCause();
+							if (cause instanceof MessagingException) {
+								e = (Exception) cause;
+							}
+						}
+						log.warn("msg " + count + " - " + e.getLocalizedMessage());
+						if (log.isDebugEnabled()) {
+							log.debug("dumpObject", e);
+						}
+					}
 					dumpObject(dir, prefix + "." + i, count, bp.getContent(), 
-						bp.getContentType(), uriList);
+						ct, uriList);
 				}
 			} catch (Exception e) {
+				if (e instanceof IOException) {
+					Throwable cause = e.getCause();
+					if (cause instanceof MessagingException) {
+						e = (Exception) cause;
+					}
+				}
 				log.warn("msg " + count + " - " + e.getLocalizedMessage());
 				if (log.isDebugEnabled()) {
 					log.debug("dumpObject()", e);
@@ -191,16 +311,37 @@ public class MboxReader {
 			} finally {
 				try { in.close(); } catch (Exception x) { /* ignore */ }
 			}
-			String ext = WhoisCheck.getExtension(contentType);
-			if (ext.equals("plain") || ext.equals("html") || ext.equals("xml")) {
-				WhoisCheck.findURIs(new String(bos.toByteArray()), uriList);
+			String ext = contentType != null ? contentType.getSubType() : "";
+			if (contentType != null && contentType.getPrimaryType().equals("text")) {
+				String txt = ContentTypeMatcher.convert(contentType, bos.toByteArray());
+				WhoisCheck.findURIs(txt, uriList);
+				dump(new File(dir, prefix + "." + ext), 
+					txt.getBytes(Charset.forName("UTF-8")));
+				if (hexDump) {
+					dumpHex(new File(dir, prefix + ".txt-hex"), txt);
+				}
+			} else {
+				dump(new File(dir, prefix + "." + ext), bos.toByteArray());
 			}
-			dump(new File(dir, prefix + "." + ext), bos.toByteArray());
 		} else if (o instanceof MimeMessage) {
 			MimeMessage m = (MimeMessage) o;
+			ContentType ct = null;
 			try {
-				dumpObject(dir, prefix, count, m.getContent(), 
-					m.getContentType(), uriList);
+				ct = m.getContentTypeObj();
+			} catch (Exception e) {
+				if (e instanceof IOException) {
+					Throwable cause = e.getCause();
+					if (cause instanceof MessagingException) {
+						e = (Exception) cause;
+					}
+				}
+				log.warn("msg " + count + " - " + e.getLocalizedMessage());
+				if (log.isDebugEnabled()) {
+					log.debug("dumpObject", e);
+				}
+			}
+			try {
+				dumpObject(dir, prefix, count, m.getContent(), ct, uriList);
 			} catch (Exception e) {
 				log.warn("msg " + count + " - " + e.getLocalizedMessage());
 				if (log.isDebugEnabled()) {
@@ -209,13 +350,16 @@ public class MboxReader {
 			}
 		} else {
 			log.warn("Unable to handle msg " + count + " " 
-				+ o.getClass().getSimpleName() + " " + contentType);
+				+ o.getClass().getSimpleName() + " " 
+				+ ContentTypeMatcher.normalize(contentType));
 		}
 	}
 
 	/**
 	 * Dump all message parts to the given directory prefixed with the number 
-	 * of message in mailbox order.
+	 * of message in mailbox order. *.txt file content is UTF-8 encoded, other
+	 * are as read.
+	 * 
 	 * @param dir		base directory for storage
 	 * @param mails		mails to dump
 	 * @param uriList	if URLs are found in text parts of the mails, add them 
@@ -243,8 +387,14 @@ public class MboxReader {
 				PrintWriter p = new PrintWriter(w);
 				p.printf("%04d", Integer.valueOf(count));
 				dumpObject(dir, w.toString(), count, m.getContent(), 
-					m.getContentType(), uriList);
+					m.getContentTypeObj(), uriList);
 			} catch (Exception e) {
+				if (e instanceof IOException) {
+					Throwable cause = e.getCause();
+					if (cause instanceof MessagingException) {
+						e = (Exception) cause;
+					}
+				}
 				log.warn("msg " + count + " - " + e.getLocalizedMessage());
 				if (log.isDebugEnabled()) {
 					log.debug("dump()", e);
@@ -264,9 +414,10 @@ public class MboxReader {
 "Usage: java -cp ... MboxReader mboxFile [outfile]" + EOL + 
 EOL +
 "Reads in the given mbox formatted file and dumps the parts of each mail" + EOL +
-"to java.io.tmpdir/mail (default /tmp/mail). Last but not least URIs are " + EOL + 
+"to java.io.tmpdir/mail/ (default /tmp/mail/). Last but not least URIs are " + EOL + 
 "extracted from plain text, html and xml message parts and printed to " + EOL +
-"the given outfile. If this parameter is ommited, it gets printed to stdout."
+"the given outfile. If this parameter is ommited, it gets printed to stdout." + EOL +
+"String based mail parts are dumped as UTF-8, all others as read in."
 );
 	}
 
@@ -279,11 +430,14 @@ EOL +
 			usage(System.err);
 			System.exit(1);
 		}
-		MboxReader mr = new MboxReader();
+		String tmp = System.getProperty("hex", null);
+		MboxReader mr = new MboxReader(tmp != null);
 		ArrayList<Mail> mails = MboxReader.read(new File(args[0]));
 		ArrayList<URI> uriList = new ArrayList<URI>();
+
+		String os = System.getProperty("os.name", "");
 		String tmpdir = System.getProperty("java.io.tmpdir");
-		if (tmpdir == null) {
+		if (tmpdir == null || os.startsWith("Mac")) {
 			tmpdir = "/tmp";
 		}
 		File dir = new File(tmpdir, "mail");

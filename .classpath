@@ -5,7 +5,7 @@
 	<classpathentry kind="lib" path="lib/dnsjava-2.0.5.jar" sourcepath="/local/apps/javax/src/dnsjava-2.0.5-src.jar"/>
 	<classpathentry kind="lib" path="lib/logback-classic-0.9.8.jar"/>
 	<classpathentry kind="lib" path="lib/logback-core-0.9.8.jar"/>
-	<classpathentry kind="lib" path="lib/mail.jar" sourcepath="/javamail/src/java"/>
+	<classpathentry kind="lib" path="lib/mail.jar" sourcepath="/javamail/mail/src/main/java"/>
 	<classpathentry kind="lib" path="lib/slf4j-api-1.4.3.jar"/>
 	<classpathentry kind="lib" path="lib/whois4j-1.1.0.jar"/>
 	<classpathentry kind="lib" path="etc"/>

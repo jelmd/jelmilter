@@ -19,7 +19,7 @@ xinclude =
 		# however, the regex element attributes are ignored
 		attribute file { xsd:NMTOKEN }
 	}
-# a single regex rule
+# a single rule
 rule = 
 	element rule {
 		# used, when matches are logged
@@ -74,16 +74,40 @@ match =
 		attribute id { xsd:NMTOKEN }?,
 		# if "true", negate the outcome of this rule before returning it
 		attribute not { xsd:boolean }?,
-		# If src is set to "header", name will be used as the name of the header
-		# to lookup and apply the given regex to its value. If name is not set, 
-		# the given regex will be applied to all headers.
-		# If src is set to "body", type might be set to a comma separated list
-		# of mimetypes (e.g. "text/plain,text/html" or "text/"). In this case,
-		# the regex will be applied to message parts with a matching mime type.
-		# If type is not specified, "text/" is assumed as default.
-		# If src is set to any other value, 'name' and 'type' attributes are ignored.
+		# If src is set to "header", name will be used as a comma separated list
+		# of header names to lookup and apply the embedded rules to its values.
+		# If name is not set, the given regex gets applied to all header values.
+		# 
+		# If src is set to "body", type might be set to content-type values to
+		# to match. The embedded rules are than applied to message parts 
+		# with a matching mime type, only. Format: 
+		# 	type['|'type]*'/'subtype['|'subtype]* [; param="val['|'val]*"]*
+		# If type is not specified, "text/*" is assumed as default.
+		# An asterisk ('*') may be used for type as well as subtype to match
+		# any [sub]type. The parameter names (param) are always trimmed and 
+		# converted to lower case. As seen, alternate values might be separated
+		# by a '|'. E.g.:
+		#	text/plain|html; charset="windows-1251|koi8-r"
+		# The content type matches, if a matching media type and subtype
+		# can be found. In addition, if paramters are given in the constructor, 
+		# ALL parameters must occure in the given content type and match
+		# at least one of the possibly alternate values.
+		# Types and parameter names are trimmed and converted to lowercase and 
+		# matched on a <em>isEqual</em> base.
+		# Parameter values are matched on a <em>startsWith</em> base, if the
+		# param value ends with an asterisk '*', matched on a <em>endsWith</em>
+		# base, if the param value starts with an asterisk '*', otherwise
+		# matched on a <em>isEqual</em> base.
+		#
+		# If src is set to any other value, 'name' and 'type' attributes are 
+		# ignored.
 		(attribute name { text } | attribute type { text })?,
-		# Determines, to which section of the mail the regex should be applied.
+		# Determines, to which section of the mail the rules should be applied.
+		# For all but body embedded rules are applied against raw values, i.e. 
+		# possibly quoted values (e.g. =?koi8-r?B?5tLP09E=?= <iration@iration.ru>) 
+		# are not decoded, before find/regex gets applied. 
+		# For body text based message content gets always unquoted/converted 
+		# into UTF-8 before embedded rules are applied.
 		attribute src { "mail_from" | "rcpt_to" | "header" | "body" },
 		# the regular expression (java Pattern syntax) to apply 
 		text

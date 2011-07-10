@@ -69,7 +69,7 @@ public class CIDR {
 		this.addr[1] &= this.mask[1];
 	}
 	
-	private long[] addr2long(byte[] ip) {
+	private static long[] addr2long(byte[] ip) {
 		long res[] = new long[2];
 		if (ip.length != 4 && ip.length != 16) {
 			throw new IllegalArgumentException("IP Address with " + ip.length
@@ -96,7 +96,7 @@ public class CIDR {
 		return res;
 	}
 
-	private long[] mask2long(int mask) {
+	private static long[] mask2long(int mask) {
 		long[] res = new long[2];
 		if (mask > 64) {
 			res[0] = ~ (long) 0;

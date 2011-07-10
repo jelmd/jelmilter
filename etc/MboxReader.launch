@@ -14,4 +14,5 @@
 <stringAttribute key="org.eclipse.jdt.launching.MAIN_TYPE" value="de.ovgu.cs.jelmilter.misc.MboxReader"/>
 <stringAttribute key="org.eclipse.jdt.launching.PROGRAM_ARGUMENTS" value="/tmp/spam"/>
 <stringAttribute key="org.eclipse.jdt.launching.PROJECT_ATTR" value="jelmilter"/>
+<stringAttribute key="org.eclipse.jdt.launching.VM_ARGUMENTS" value="-Dhex"/>
 </launchConfiguration>
