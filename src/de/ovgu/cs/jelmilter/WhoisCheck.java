@@ -22,6 +22,7 @@ import java.nio.channels.SocketChannel;
 import java.util.ArrayList;
 import java.util.EnumSet;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.regex.Matcher;
@@ -41,6 +42,7 @@ import de.ovgu.cs.jelmilter.misc.ContentTypeMatcher;
 import de.ovgu.cs.jelmilter.misc.MboxReader;
 import de.ovgu.cs.milter4j.MailFilter;
 import de.ovgu.cs.milter4j.cmd.Type;
+import de.ovgu.cs.milter4j.reply.AcceptPacket;
 import de.ovgu.cs.milter4j.reply.Packet;
 import de.ovgu.cs.milter4j.reply.ReplyPacket;
 import de.ovgu.cs.milter4j.util.Mail;
@@ -61,6 +63,7 @@ public class WhoisCheck
 	private static final AtomicInteger instCounter = new AtomicInteger();
 	private String name;
 	private Pattern[] patterns;
+	private HashSet<String> rcptWhitelist;
 	private long[] timeoutMap;
 	private boolean stopWaiting;
 	// spam is usually <= 50KiB
@@ -93,14 +96,19 @@ public class WhoisCheck
 	 * @param addr	the socket of the whois-spam to use
 	 * @param patterns	a list of hostname patterns, which are considered to be 
 	 * 		spam hosts
+	 * @param rcptWL	an optional set of recipient addresses, for whome this
+	 * 	filter should be ignored.
 	 */
-	public WhoisCheck(InetSocketAddress[] addr, Pattern[] patterns) {
+	public WhoisCheck(InetSocketAddress[] addr, Pattern[] patterns, 
+		HashSet<String> rcptWL) 
+	{
 		if (addr == null) {
 			throw new IllegalArgumentException("Invalid address/port");
 		}
 		name = "WhoisCheck " + instCounter.getAndIncrement();
 		this.addr = addr;
 		this.patterns = patterns;
+		this.rcptWhitelist = rcptWL;
 		timeoutMap = new long[addr.length];
 		stopWaiting = false;
 	}
@@ -126,7 +134,7 @@ public class WhoisCheck
 	 */
 	@Override
 	public MailFilter getInstance() {
-		return new WhoisCheck(addr, patterns);
+		return new WhoisCheck(addr, patterns, rcptWhitelist);
 	}
 
 	/**
@@ -137,42 +145,101 @@ public class WhoisCheck
 		return name;
 	}
 
+	/** The prefix to use to specify the whois server to use. Value has the
+	 * format servername:port, e.g.: server=main.do:1234. Can be specified 
+	 * multiple times. In this case order is important, and the filter starts
+	 * asking the 2nd server, if the first one is unavailable and so on.
+	 */
+	public static String P_SERVER = "server=";
+	/** The prefix to use to specify a pattern, which should applied against the 
+	 * FQDN of each URL found in a mail. On match, mail gets rejected. Multiple
+	 * patterns can be supplied. 
+	 */
+	public static String P_PATTERN = "pattern=";
+	/** The prefix to use to specifiy a comma separated list of recipients, for
+	 * whome this filter should skipped, i.e. do nothing. See macro "{rcpt_addr}".
+	 */
+	public static String P_SKIP4 = "skip4=";
+	
+	/**
+	 * The prefix to use to specify the max. size of a mail, which should be 
+	 * scanned. I.e. if a mail is greater than the given amount, this filter 
+	 * does nothing.
+	 */
+	public static String P_MAXSIZE = "maxsize=";
+
+	private static final void warnParam(String name, String value) {
+		log.warn("Invalid value \"{}\" for parameter {} ignored", value, name);
+	}
+
 	/**
 	 * @see WhoisCheck#WhoisCheck(String)
 	 */
-	private boolean reconfigure(String serverPortPatterns, boolean throwEx) {
-		String msg = "whois-spam server:port address required";
-		if (serverPortPatterns == null) {
+	private boolean reconfigure(String serverPortPatternsSkip, boolean throwEx) {
+		String msg = "whois-spam server (server=hostname:port) parameter required";
+		if (serverPortPatternsSkip == null) {
 			if (throwEx)
 				throw new IllegalArgumentException(msg);
 			log.warn(msg);
 			return false;
 		}
-		String[] params = serverPortPatterns.split(",");
-		String[] serverPort = params[0].split("\\|");
+		String[] params = serverPortPatternsSkip.split(";");
 		ArrayList<InetSocketAddress> ia = new ArrayList<InetSocketAddress>();
-		for (int i=0; i < serverPort.length; i++) {
-			int idx = serverPort[i].indexOf(':');
-			if (idx == -1) {
-				log.warn(msg);
-				continue;
-			}
-			String host = serverPort[i].substring(0, idx);
-			String tmp = serverPort[i].substring(idx+1);
-			int aPort = -1;
-			InetSocketAddress aAddr = null;
-			try {
-				aPort = Integer.parseInt(tmp, 10);
-				aAddr = new InetSocketAddress(host, aPort);
-			} catch (Exception e) {
-				log.warn("Invalid port '" + tmp + "'");
-				continue;
-			}
-			if (aAddr.isUnresolved()) {
-				log.warn("Invalid host/ip '" + tmp + "'");
-			} else {
-				log.info("Configured whois-spam server " + host + ":" + aPort);
-				ia.add(aAddr);
+		ArrayList<Pattern> pl = new ArrayList<Pattern>();
+		HashSet<String> skipList = new HashSet<String>();
+		for (int i=0; i < params.length; i++) {
+			if (params[i].startsWith(P_SERVER)) {
+				String tmp = params[i].substring(P_SERVER.length()).trim();
+				int idx = tmp.indexOf(':');
+				if (idx == -1) {
+					log.warn(msg);
+					continue;
+				}
+				String host = tmp.substring(0, idx);
+				tmp = tmp.substring(idx+1);
+				int aPort = -1;
+				InetSocketAddress aAddr = null;
+				try {
+					aPort = Integer.parseInt(tmp, 10);
+					aAddr = new InetSocketAddress(host, aPort);
+				} catch (Exception e) {
+					log.warn("Invalid server port '" + tmp + "'");
+					continue;
+				}
+				if (aAddr.isUnresolved()) {
+					log.warn("Invalid server host/ip '" + tmp + "'");
+				} else {
+					log.info("Configured whois-spam server " + host + ":" + aPort);
+					ia.add(aAddr);
+				}
+			} else if (params[i].startsWith(P_PATTERN)) {
+				String tmp = params[i].substring(P_PATTERN.length()).trim();
+				if (tmp.isEmpty()) {
+					warnParam(P_PATTERN, "");
+					continue;
+				}
+				try {
+					Pattern p = Pattern.compile(params[i]);
+					pl.add(p);
+				} catch (Exception e) {
+					log.warn(e.getLocalizedMessage());
+				}
+			} else if (params[i].startsWith(P_SKIP4)) {
+				String[] tmp = params[i].substring(P_SKIP4.length()).split(",");
+				for (int k=tmp.length-1; k >= 0; k--) {
+					String rcpt = tmp[k].trim();
+					if (rcpt.length() != 0) {
+						skipList.add(rcpt);
+					}
+				}
+			} else if (params[i].startsWith(P_MAXSIZE)) {
+				String tmp = params[i].substring(P_MAXSIZE.length()).trim();
+				try {
+					int s = Integer.parseInt(tmp, 10);
+				   	maxSize = s < 0 ? -1 : maxSize;
+				} catch (Exception e) {
+					warnParam(P_MAXSIZE, tmp);
+				}
 			}
 		}
 		if (ia.isEmpty()) {
@@ -181,26 +248,7 @@ public class WhoisCheck
 			log.warn(msg);
 			return false;
 		}
-		ArrayList<Pattern> pl = new ArrayList<Pattern>();
-		if (params.length > 1) {
-			for (int i=params.length-1; i > 0; i--) {
-				try {
-					if (params[i].startsWith("maxsize=")) {
-						int s = Integer.parseInt(params[i]
-						     .substring("maxsize=".length()).trim(), 10);
-						maxSize = s < 0 ? -1 : maxSize;
-					} else {
-						Pattern p = Pattern.compile(params[i]);
-						pl.add(p);
-					}
-				} catch (Exception e) {
-					log.warn(e.getLocalizedMessage());
-					if (log.isDebugEnabled()) {
-						log.debug("reconfigure", e);
-					}
-				}
-			}
-		}
+		rcptWhitelist = skipList.isEmpty() ? null : skipList;
 		patterns = pl.toArray(new Pattern[pl.size()]);
 		addr = ia.toArray(new InetSocketAddress[ia.size()]);
 		timeoutMap = new long[ia.size()];
@@ -221,7 +269,11 @@ public class WhoisCheck
 	 */
 	@Override
 	public EnumSet<Type> getCommands() {
-		return EnumSet.of(Type.BODY, Type.BODYEOB);
+		 EnumSet<Type> of = EnumSet.of(Type.BODY, Type.BODYEOB);
+		 if (rcptWhitelist != null) {
+			 of.add(Type.RCPT);
+		 }
+		 return of;
 	}
 	
 	/**
@@ -457,6 +509,27 @@ public class WhoisCheck
 	private static ReplyPacket createReplyMaleformedMsg() {
 		return new ReplyPacket(554, "5.7.1", 
 			"Invalid message format - strict RFC compliance required");
+	}
+
+	/**
+	 * Check, whether a recipient of the mail is in the white list.
+	 * @return {@code accpet} if recipient is found in the whitelist, 
+	 * 	{@code null} otherwise.
+	 */
+	@Override
+	public Packet doRecipientTo(String[] recipient, HashMap<String, String> macros)
+	{
+		if (rcptWhitelist == null) {
+			return null;
+		}
+		String rcpt = macros.get("{rcpt_addr}");
+		if (rcpt != null && rcptWhitelist.contains(rcpt)) {
+			if (log.isInfoEnabled()) {
+				log.info(getLogInfo(macros) + "rcpt whitelist " + rcpt);
+			}
+			return new AcceptPacket(false);
+		}
+		return null;
 	}
 
 	/**
