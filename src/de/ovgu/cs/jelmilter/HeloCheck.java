@@ -66,30 +66,15 @@ public class HeloCheck
 
 	/**
 	 * Create a new instance.
-	 * The argument is a list of parameters separate by a {@code :} (colon).
-	 * If an argument is {@code strict}, connecting clients need to
-	 * HELO with a hostname, which matches their IP-Address or the MX host
-	 * listed for this client.
-	 * <p>
-	 * If an argument is {@code delayCheck}, the Connect and Helo checks are done
-	 * as usual, however if they yield to a reject packet, it will be only sent,
-	 * if the user is not authenticated. So, if this feature is enabled,
-	 * possible rejects are delayed until {@link #doRecipientTo(String[], HashMap)} 
-	 * gets called and rejects are logged at info level.
-	 * <p>
-	 * Any other argument gets interpreted as a comma separated whitelists of 
-	 * domains, hostnames or IP addresses, for which the helo check should be 
-	 * skipped. If the list starts with {@code ip=}, CIDRs are expected, which 
-	 * are matched against the clients IP address. If the list starts with
-	 * {@code fqhn=} the given Strings are compared to the client's fully 
-	 * qualified hostname (FQHN) and matches, if the FQHN ends with the given 
-	 * string. If the list starts with {@code helo=}, the given Strings are 
-	 * compared to the helo/ehlo argument, given by the client and matches, if 
-	 * the helo argument ends with the given string. NOTE: Since helo arguments
-	 * are usually faked names in spam mails, care should be taken if one uses
-	 * this type of whitelist.
 	 * 
-	 * @param params [strict:][delayCheck:][{helo|ip|fqhn}=domain,...,domain]
+	 * @param params a {@code ;} separated list of key=value pairs.
+	 * @see #P_STRICT
+	 * @see #P_DELAY_CHECK
+	 * @see #P_HELO_WL
+	 * @see #P_FQHN_WL
+	 * @see #P_IP_WL
+	 * @see #P_SKIP
+	 * 
 	 */
 	public HeloCheck(String params) {
 		name = "HeloCheck " + instCounter.getAndIncrement();
@@ -143,6 +128,59 @@ public class HeloCheck
 	}
 
 	/**
+	 * Prefix to use to indicate strict mode. If set to {@code true} connecting 
+	 * clients need to HELO with a hostname, which matches their IP-Address or 
+	 * the MX host listed for this client. Otherwise the mail gets rejected.
+	 * Default is {@code false}.
+	 */
+	public static String P_STRICT = "strict=";
+
+	/**
+	 * Prefix to use to indicate, whether the helo check should be delayed.
+	 * If its value is set to {@code true} the Connect and Helo checks are done
+	 * as usual, however if they yield to a reject packet, it will be only sent,
+	 * if the user is not authenticated. So, if this feature is enabled,
+	 * possible rejects are delayed until {@link #doRecipientTo(String[], 
+	 * HashMap)} gets called and rejects are logged at info level.
+	 * Default is {@code false}.
+	 */
+	public static String P_DELAY_CHECK = "delayCheck=";
+
+	/**
+	 * Prefix to use for domains to whitelist. Value is a comma separated 
+	 * list of domains, which are compared to the helo/ehlo argument, given by 
+	 * the client. If the helo argument ends with one of the given strings, the
+	 * mail gets not rejected. NOTE: Since helo arguments are usually faked 
+	 * names in spam mails, care should be taken if one uses this type of 
+	 * whitelist, should be avoided.
+	 */
+	public static String P_HELO_WL = "helo=";
+
+	/**
+	 * Prefix to use for FQHNs to whitelist. Value is a comma separated 
+	 * list of Fully Qualified HostNames (FQHN), which are compared to the 
+	 * to the FQHN of the client. If a the FQHN of the client ends with one of 
+	 * the given strings, mail gets not rejected.
+	 */
+	public static String P_FQHN_WL = "fqhn=";
+
+	/**
+	 * Prefix to use for IP based whitelists. Value is a comma separated list
+	 * of CIDRs. If a CIDR of the list matches the client's IP address, mail
+	 * gets not rejected.
+	 */
+	public static String P_IP_WL = "ip=";
+	
+	/**
+	 * Prefix to use for recipients whitelists. The value is a comma separated 
+	 * list of recipients, for which this check should be skipped. I.e. if a
+	 * recipient matches one in the given list, mail gets not rejected. 
+	 * NOTE: {@value #P_DELAY_CHECK} must be set to {@code true} to get this 
+	 * whitelist honored.
+	 */
+	public static String P_SKIP = "skip4=";
+	
+	/**
 	 * {@inheritDoc}
 	 */
 	@Override
@@ -154,82 +192,91 @@ public class HeloCheck
 		strict = false;
 		delayCheck = false;
 		reply = null;
+		String[] args = {};
 		if (params != null) {
-			String[] args = params.split(":");
-			for (int i=args.length-1; i >= 0; i--) {
-				if (args[i].equalsIgnoreCase("strict")) {
-					strict = true;
+			args = params.split(";");
+		}
+
+		HashSet<String> ehloWL = new HashSet<String>();
+		HashSet<String> fqhnWL = new HashSet<String>();
+		ArrayList<CIDR> cidrs = new ArrayList<CIDR>();
+		HashSet<String> rcptWL = new HashSet<String>();
+		for (int i=args.length-1; i >= 0; i--) {
+			String param = args[i].trim();
+			if (param.isEmpty()) {
+				continue;
+			}
+			if (param.startsWith(P_STRICT)) {
+				strict = Boolean.parseBoolean(param.substring(P_STRICT.length()));
+				if (strict) {
 					log.info("Using strict mode");
-				} else if (args[i].equalsIgnoreCase("delayCheck")) {
-					delayCheck = true;
+				}
+			} else if (param.startsWith(P_DELAY_CHECK)) {
+				delayCheck = Boolean.parseBoolean(param.substring(P_DELAY_CHECK.length()));
+				if (delayCheck) {
 					log.info("Using delay check");
-				} else if (args[i].length() != 0) {
-					if (args[i].startsWith("helo=")) {
-						String[] tmp = args[i].substring(5).split(",");
-						ArrayList<String> hnames = new ArrayList<String>();
-						for (int k=0; k < tmp.length; k++) {
-							String t = tmp[k].trim();
-							if (t.length() != 0) {
-								hnames.add(t);
+				}
+			} else if (param.startsWith(P_HELO_WL)) {
+				String[] tmp = param.substring(P_HELO_WL.length()).split(",");
+				for (int k=0; k < tmp.length; k++) {
+					String t = tmp[k].trim();
+					if (t.length() != 0) {
+						ehloWL.add(t);
+					}
+				}
+			} else if (param.startsWith(P_FQHN_WL)) {
+				String[] tmp = param.substring(P_FQHN_WL.length()).split(",");
+				for (int k=0; k < tmp.length; k++) {
+					String t = tmp[k].trim();
+					if (t.length() != 0) {
+						fqhnWL.add(t);
+					}
+				}
+			} else if (param.startsWith(P_IP_WL)) {
+				String[] tmp = param.substring(P_IP_WL.length()).split(",");
+				for (int k=0; k < tmp.length; k++) {
+					String t = tmp[k].trim();
+					if (t.length() != 0) {
+						try {
+							CIDR cidr = new CIDR(t);
+							cidrs.add(cidr);
+						} catch (Exception e) {
+							log.warn(e.getLocalizedMessage());
+							if (log.isDebugEnabled()) {
+								log.debug("reconfigure", e);
 							}
-						}
-						ehloWhitelist = hnames.size() > 0 
-							? hnames.toArray(new String[hnames.size()])
-							: null;
-					} else if (args[i].startsWith("fqhn=")) {
-						String[] tmp = args[i].substring(5).split(",");
-						ArrayList<String> hnames = new ArrayList<String>();
-						for (int k=0; k < tmp.length; k++) {
-							String t = tmp[k].trim();
-							if (t.length() != 0) {
-								hnames.add(t);
-							}
-						}
-						fqhnWhitelist = hnames.size() > 0 
-							? hnames.toArray(new String[hnames.size()])
-							: null;
-					} else if (args[i].startsWith("ip=")) {
-						String[] tmp = args[i].substring(3).split(",");
-						ArrayList<CIDR> cidrs = new ArrayList<CIDR>();
-						for (int k=0; k < tmp.length; k++) {
-							String t = tmp[k].trim();
-							if (t.length() != 0) {
-								CIDR cidr = null;
-								try {
-									cidr = new CIDR(t);
-									cidrs.add(cidr);
-								} catch (Exception e) {
-									log.warn(e.getLocalizedMessage());
-									if (log.isDebugEnabled()) {
-										log.debug("reconfigure", e);
-									}
-								}
-							}
-						}
-						ipWhitelist = cidrs.size() > 0 
-							? cidrs.toArray(new CIDR[cidrs.size()])
-							: null;
-					} else if (args[i].startsWith("skip4=")) {
-						String[] tmp = args[i].substring(6).split(",");
-						rcptWhitelist = new HashSet<String>();
-						for (int k=tmp.length-1; k >= 0; k--) {
-							String rcpt = tmp[k].trim();
-							if (rcpt.length() != 0) {
-								rcptWhitelist.add(rcpt);
-							}
-						}
-						if (rcptWhitelist.isEmpty()) {
-							rcptWhitelist = null;
 						}
 					}
-				} 
+				}
+			} else if (param.startsWith(P_SKIP)) {
+				String[] tmp = param.substring(P_SKIP.length()).split(",");
+				for (int k=0; k < tmp.length; k++) {
+					String t = tmp[k].trim();
+					if (t.length() != 0) {
+						rcptWL.add(t);
+					}
+				}
+			} else {
+				log.warn("Unknown parameter '" + param + "' ignored");
 			}
+		}
+		if (ehloWL.size() > 0) {
+			ehloWhitelist = ehloWL.toArray(new String[ehloWL.size()]);
+		}
+		if (fqhnWL.size() > 0) {
+			fqhnWhitelist = fqhnWL.toArray(new String[fqhnWL.size()]);
+		}
+		if (cidrs.size() > 0) {
+			ipWhitelist = cidrs.toArray(new CIDR[cidrs.size()]);
+		}
+		if (rcptWL.size() > 0) {
+			rcptWhitelist = rcptWL;
 		}
 		if (delayCheck) {
 			cmds.add(Type.RCPT);
 		} else {
 			if (rcptWhitelist != null && rcptWhitelist.size() > 0) {
-				log.warn("skip4 parameter is ignored since 'delayCheck' is not enabled");
+				log.warn(P_SKIP + " parameter ignored since 'delayCheck' is not enabled");
 			}
 			cmds.remove(Type.RCPT);
 		}
@@ -470,31 +517,33 @@ public class HeloCheck
 	 * @param out where to print the info.
 	 */
 	public static void usage(PrintStream out) {
-		String EOL = System.getProperty("line.separator");
-		out.println(
-"Usage: java -cp HeloCheck {[strict][:delayCheck][:ip=CIDR[,CIDR]*] \\" + EOL +
-"                           [:ehlo=domain[,domain]*][:fqhn=domain[,domain]* \\" + EOL +
-"                           [:skip4=account[,account]*]}  clientIP  helo_arg" + EOL +
-"  strict     .. Reject mail if neither the EHLOed hostname has a DNS A record " + EOL +
-"                with an IP of the talking client nor the client has an DNS MX " + EOL +
-"                entry which is equal to the EHLOed hostname." + EOL +
-"  delayCheck .. Postpone the final decision about mail rejection until " + EOL +
-"                RCPT TO cmd gets processed. Here if the client has " + EOL +
-"                authenticated itself or the recipient is part of a whitelist " + EOL +
-"                (see skip4) a possible reject decision gets discarded." + EOL +
-"  skip4=...  .. a comma separated whitelist of recipients, for which this " + EOL +
-"                check should be skipped." + EOL +
-"  ehlo=...   .. a comma separated whitelist of domains. If an EHLOed hostname" + EOL +
+		String EOL = "%n";
+		out.printf(
+"Usage: java -cp HeloCheck [key=value;]* clientIP  helo_arg" + EOL + EOL +
+"  key=value .. helo check configuration paramters" + EOL +
+"  clientIP  .. the simulated IPv4 address of the client" + EOL +
+"  helo_arg  .. the simulated EHLOed hostname sent by the client" + EOL + EOL +
+"keys:" + EOL +
+      "  %10s .. If set to 'true' reject mail if neither the EHLOed hostname" + EOL +
+"                has a DNS A record with an IP of the talking client nor the" + EOL +
+"                client has an DNS MX entry which is equal to the EHLOed" + EOL +
+"                hostname" + EOL +
+      "  %10s .. If set to 'true' postpone the final decision about mail" + EOL +
+"                rejection until RCPT TO cmd gets processed. Here if the client" + EOL +
+"                has authenticated itself or the recipient is part of a" + EOL +
+"                whitelist (see %s) a possible reject decision gets discarded" + EOL +
+      "  %10s .. a comma separated whitelist of recipients (accounts), for" + EOL +
+"                which this check should be skipped" + EOL +
+      "  %10s .. a comma separated whitelist of domains. If an EHLOed hostname" + EOL +
 "                ends with a domain given in this whitelist, mail gets accepted" + EOL +
-"  fqhn=...   .. a comma separated whitelist of domains. If the clients fully " + EOL +
-"                quallified host or domain name ends with a with a domain given" + EOL +
+      "  %10s .. a comma separated whitelist of domains. If the clients fully " + EOL +
+"                qualified host or domain name ends with a with a domain given" + EOL +
 "                in this whitelist, mail gets accepted" + EOL +
-"  ip=...     .. a comma separated whitelist of IPv4 addresses (CIDRs are ok" + EOL +
+      "  %10s .. a comma separated whitelist of IPv4 addresses (CIDRs are ok" + EOL +
 "                as well). For all clients connecting with an IP from the list," + EOL +
 "                mail gets accepted. This should preferred over the other" + EOL +
-"                whitelist options (ehlo and fqhn)!" + EOL +
-"  clientIP   .. the simulated IPv4 address of the client" + EOL +
-"  helo_arg   .. the simulated EHLOed hostname sent by the client."
+"                whitelist options (ehlo and fqhn)!" + EOL,
+	P_STRICT, P_DELAY_CHECK, P_SKIP, P_SKIP, P_HELO_WL, P_FQHN_WL, P_IP_WL
 );
 	}
 	
@@ -511,9 +560,55 @@ public class HeloCheck
 		HashMap<String,String> macros = new HashMap<String,String>(0);
 		h.doConnect(addr.getCanonicalHostName(), AddressFamily.INET, 61739, 
 			args[1], macros);
-		log.info("" + h.doHelo(args[2].toString(), macros));
+		log.info("doHelo result: " + h.doHelo(args[2].toString(), macros));
 		if (h.delayCheck) {
 			log.info("" + h.doRecipientTo(null, macros));
 		}
+	}
+	
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public String toString() {
+		StringBuilder buf = new StringBuilder(getClass().getSimpleName())
+			.append("[cmds=");
+		for (Type t : getCommands()) {
+			buf.append(t.name()).append(',');
+		}
+		buf.setLength(buf.length()-1);
+		buf.append(";name=").append(name).append(';')
+			.append(P_STRICT).append(strict ? "true" : "false").append(';')
+			.append(P_DELAY_CHECK).append(delayCheck ? "true" : "false");
+		if (rcptWhitelist != null && rcptWhitelist.size() > 0) {
+			buf.append(';').append(P_SKIP);
+			for (String rcpt : rcptWhitelist) {
+				buf.append(rcpt).append(',');
+			}
+			buf.setLength(buf.length()-1);
+		}
+		if (ehloWhitelist != null && ehloWhitelist.length > 0) {
+			buf.append(';').append(P_HELO_WL);
+			for (String ehlo : ehloWhitelist) {
+				buf.append(ehlo).append(',');
+			}
+			buf.setLength(buf.length()-1);
+		}
+		if (fqhnWhitelist != null && fqhnWhitelist.length > 0) {
+			buf.append(';').append(P_FQHN_WL);
+			for (String hostname : fqhnWhitelist) {
+				buf.append(hostname).append(',');
+			}
+			buf.setLength(buf.length()-1);
+		}
+		if (ipWhitelist != null && ipWhitelist.length > 0) {
+			buf.append(';').append(P_IP_WL);
+			for (CIDR cidr: ipWhitelist) {
+				buf.append(cidr).append(',');
+			}
+			buf.setLength(buf.length()-1);
+		}
+		buf.append(']');
+		return buf.toString();
 	}
 }

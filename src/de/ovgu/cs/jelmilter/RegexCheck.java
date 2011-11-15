@@ -269,7 +269,7 @@ public class RegexCheck
 			log.warn("doMailFrom" + Rule.getMessageID(macros) 
 				+ e.getLocalizedMessage());
 			if (log.isDebugEnabled()) {
-				log.debug("doRecipientTo", e);
+				log.debug("doMailFrom", e);
 			}
 		}
 		return createReplyMaleformedMsg();
@@ -453,8 +453,8 @@ public class RegexCheck
 
 	/**
 	 * Configure this instance by reading the given stream
-	 * @param in	a stream, whoms cursor points to the start of an {@code regex}
-	 * 		element.
+	 * @param in	a stream, whoms cursor points to the start of an 
+	 * 		{@code regex} element.
 	 * @throws XMLStreamException
 	 */
 	public void fromXml(XMLStreamReader in) throws XMLStreamException {

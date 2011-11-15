@@ -65,30 +65,28 @@ public class WhoisCheck
 	private Pattern[] patterns;
 	private HashSet<String> rcptWhitelist;
 	private long[] timeoutMap;
+	/* as long as it is false, the filter tries to connect a [fallback]server
+	 * 'til a serverTimeout has been reached or a servers in the list have been 
+	 * tried.
+	 */
 	private boolean stopWaiting;
 	// spam is usually <= 50KiB
 	private int maxSize = 50 * 1024;
 
 	/**
 	 * Create a new Instance.
-	 * @param serverPortPattern	a {@code |} searated server:port list, whereby 
-	 * 		<var>server</var> is the hostname or IP-Address and <var>port</var> 
-	 * 		the port of the whois-spam server to ask. Optionally it might be 
-	 * 		followed by a comma separated list of hostname patterns, which 
-	 * 		are also considered to be spam hosts. Finally the comma separated 
-	 * 		list may contain a 'maxsize=N' parameter, whereby N defines the 
-	 *      maximum size of a message in byte, which should be scanned. {@code -1} 
-	 *      implies to scan all message (unlimited size) and {@code 0} effectively
-	 *      disables this filter. Default is 50K.
-	 * 		<p>
-	 * 		E.g. server:port|fallbackserver:port,hostnamePattern0,...
+	 * @param params	a {@code ;} separated list of key=value pairs.
+	 * @see #P_SERVER
+	 * @see #P_PATTERN
+	 * @see #P_MAXSIZE
+	 * @see #P_SKIP4
 	 */
-	public WhoisCheck(String serverPortPattern) {
-		if (serverPortPattern == null) {
+	public WhoisCheck(String params) {
+		if (params == null) {
 			throw new IllegalArgumentException("whois-spam server address and port required");
 		}
 		name = "WhoisCheck " + instCounter.getAndIncrement();
-		reconfigure(serverPortPattern, true);
+		reconfigure(params, true);
 	}
 
 	/**
@@ -164,7 +162,8 @@ public class WhoisCheck
 	/**
 	 * The prefix to use to specify the max. size of a mail, which should be 
 	 * scanned. I.e. if a mail is greater than the given amount, this filter 
-	 * does nothing.
+	 * does nothing. If the given value is &lt; 0, every mail gets scanned, no
+	 * matter what its size actually is. Default is 50K.
 	 */
 	public static String P_MAXSIZE = "maxsize=";
 
@@ -175,21 +174,25 @@ public class WhoisCheck
 	/**
 	 * @see WhoisCheck#WhoisCheck(String)
 	 */
-	private boolean reconfigure(String serverPortPatternsSkip, boolean throwEx) {
+	private boolean reconfigure(String params, boolean throwEx) {
 		String msg = "whois-spam server (server=hostname:port) parameter required";
-		if (serverPortPatternsSkip == null) {
+		if (params == null) {
 			if (throwEx)
 				throw new IllegalArgumentException(msg);
 			log.warn(msg);
 			return false;
 		}
-		String[] params = serverPortPatternsSkip.split(";");
+		String[] args = params.split(";");
 		ArrayList<InetSocketAddress> ia = new ArrayList<InetSocketAddress>();
 		ArrayList<Pattern> pl = new ArrayList<Pattern>();
 		HashSet<String> skipList = new HashSet<String>();
-		for (int i=0; i < params.length; i++) {
-			if (params[i].startsWith(P_SERVER)) {
-				String tmp = params[i].substring(P_SERVER.length()).trim();
+		for (int i=0; i < args.length; i++) {
+			String param = args[i].trim();
+			if (param.isEmpty()) {
+				continue;
+			}
+			if (param.startsWith(P_SERVER)) {
+				String tmp = param.substring(P_SERVER.length());
 				int idx = tmp.indexOf(':');
 				if (idx == -1) {
 					log.warn(msg);
@@ -203,43 +206,45 @@ public class WhoisCheck
 					aPort = Integer.parseInt(tmp, 10);
 					aAddr = new InetSocketAddress(host, aPort);
 				} catch (Exception e) {
-					log.warn("Invalid server port '" + tmp + "'");
+					warnParam(P_SERVER + " (port)", tmp);
 					continue;
 				}
 				if (aAddr.isUnresolved()) {
-					log.warn("Invalid server host/ip '" + tmp + "'");
+					warnParam(P_SERVER + " (host/ip)", tmp);
 				} else {
 					log.info("Configured whois-spam server " + host + ":" + aPort);
 					ia.add(aAddr);
 				}
-			} else if (params[i].startsWith(P_PATTERN)) {
-				String tmp = params[i].substring(P_PATTERN.length()).trim();
+			} else if (param.startsWith(P_PATTERN)) {
+				String tmp = param.substring(P_PATTERN.length());
 				if (tmp.isEmpty()) {
 					warnParam(P_PATTERN, "");
 					continue;
 				}
 				try {
-					Pattern p = Pattern.compile(params[i]);
+					Pattern p = Pattern.compile(tmp);
 					pl.add(p);
 				} catch (Exception e) {
 					log.warn(e.getLocalizedMessage());
 				}
-			} else if (params[i].startsWith(P_SKIP4)) {
-				String[] tmp = params[i].substring(P_SKIP4.length()).split(",");
+			} else if (param.startsWith(P_SKIP4)) {
+				String[] tmp = param.substring(P_SKIP4.length()).split(",");
 				for (int k=tmp.length-1; k >= 0; k--) {
 					String rcpt = tmp[k].trim();
 					if (rcpt.length() != 0) {
 						skipList.add(rcpt);
 					}
 				}
-			} else if (params[i].startsWith(P_MAXSIZE)) {
-				String tmp = params[i].substring(P_MAXSIZE.length()).trim();
+			} else if (param.startsWith(P_MAXSIZE)) {
+				String tmp = param.substring(P_MAXSIZE.length()).trim();
 				try {
 					int s = Integer.parseInt(tmp, 10);
 				   	maxSize = s < 0 ? -1 : maxSize;
 				} catch (Exception e) {
 					warnParam(P_MAXSIZE, tmp);
 				}
+			} else {
+				log.warn("Unknown parameter '" + param + "' ignored");
 			}
 		}
 		if (ia.isEmpty()) {
@@ -260,8 +265,8 @@ public class WhoisCheck
 	 * {@inheritDoc}
 	 */
 	@Override
-	public boolean reconfigure(String serverPortPattern) {
-		return reconfigure(serverPortPattern, false);
+	public boolean reconfigure(String params) {
+		return reconfigure(params, false);
 	}
 	
 	/**
@@ -512,7 +517,7 @@ public class WhoisCheck
 	}
 
 	/**
-	 * Check, whether a recipient of the mail is in the white list.
+	 * Check, whether a recipient of the mail is in the whitelist.
 	 * @return {@code accpet} if recipient is found in the whitelist, 
 	 * 	{@code null} otherwise.
 	 */
@@ -527,6 +532,7 @@ public class WhoisCheck
 			if (log.isInfoEnabled()) {
 				log.info(getLogInfo(macros) + "rcpt whitelist " + rcpt);
 			}
+			stopWaiting = true;
 			return new AcceptPacket(false);
 		}
 		return null;
@@ -635,21 +641,20 @@ public class WhoisCheck
 	 * @param out where to print.
 	 */
 	public static void usage(PrintStream out) {
-		String EOL = System.getProperty("line.separator");
-		out.println(
-"Usage: java -cp ... WhoisCheck server:port[|server:port]*,pattern mboxFile" 
-+ EOL + EOL +
-"  server   .. the IP or hostname of whois check server to ask" + EOL +
-"  port     .. the port of whois check server to ask" + EOL +
-"  pattern  .. a comma separated list of sub patterns:" + EOL +
-"              a) maxsize=bytes .. don't scan messages > than the given size" + EOL +
-"              b) hostname pattern .. if the hostname part of an URI matches" + EOL +
-"                 this pattern, the message gets rejected iommediatel without" + EOL +
-"                 asking the Whois check server" + EOL +
-"  mboxFile .. the mbox formatted file to scan" + EOL +
-EOL +
-"e.g.: mail.cs:40006|ra.iws:40006,maxsize=35000,kanaweb,intelligentfinance"
-);
+		String EOL = "%n";
+		out.printf(
+"Usage: java -cp ... WhoisCheck [key=value;]* mboxFile" + EOL + EOL +
+"  key=value .. helo check configuration paramters" + EOL +
+"  mboxFile .. the mbox formatted file to scan" + EOL + EOL +
+"keys:" + EOL +
+       " %10s .. The whois check server to ask. Format: {ip|hostname}:port" + EOL +
+       " %10s .. If the given regex matches the hostname part of an URI, the" + EOL +
+"                message gets rejected immediately without asking the whois" + EOL +
+"                check server" + EOL +
+       " %10s .. don't scan messages > than the given size in bytes" + EOL +
+       " %10s .. A comma separated list of whitelist recipients (accounts)," + EOL +
+       "         i.e. don't scann message sent to a recipient in the given list" + EOL +
+       P_SERVER, P_PATTERN, P_MAXSIZE, P_SKIP4);
 	}
 
 	/**
@@ -674,5 +679,39 @@ EOL +
 			}
 		}
 		log.info("Done.");
+	}
+	
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public String toString() {
+		StringBuilder buf = new StringBuilder(getClass().getSimpleName())
+			.append("[cmds=");
+		for (Type t : getCommands()) {
+			buf.append(t.name()).append(',');
+		}
+		buf.setLength(buf.length()-1);
+		buf.append(";name=").append(name)
+			.append(';').append(P_MAXSIZE).append(maxSize);
+		for (int i=0; i < addr.length; i++) {
+			buf.append(';').append(P_SERVER).append(addr[i].toString());
+		}
+		if (patterns.length > 0) {
+			for (int i=0; i < patterns.length; i++) {
+				buf.append(';').append(P_PATTERN).append(patterns[i].pattern());
+			}
+		}
+		if (rcptWhitelist != null && rcptWhitelist.size() > 0) {
+			buf.append(';').append(P_SKIP4);
+			for (String rcpt : rcptWhitelist) {
+				buf.append(rcpt).append(',');
+			}
+			buf.setLength(buf.length()-1);
+		}
+		buf.append(";connectTimeout=").append(connectTimeout/1000)
+			.append(";serverTimeout=").append(serverTimeout/1000)
+			.append(']');
+		return buf.toString();
 	}
 }

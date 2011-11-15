@@ -18,6 +18,6 @@
 <booleanAttribute key="org.eclipse.hyades.trace.ui.ATTR_PROFILE_TO_FILE" value="false"/>
 <stringAttribute key="org.eclipse.hyades.trace.ui.ATTR_PROFILING_SET" value="tptp-dummy-profiling-set-WhoisCheck"/>
 <stringAttribute key="org.eclipse.jdt.launching.MAIN_TYPE" value="de.ovgu.cs.jelmilter.WhoisCheck"/>
-<stringAttribute key="org.eclipse.jdt.launching.PROGRAM_ARGUMENTS" value="mail.cs.uni-magdeburg.de:40006|ra.iws.cs.uni-magdeburg.de:40006,kanaweb,cimail15,intelligentfinance  /tmp/spam"/>
+<stringAttribute key="org.eclipse.jdt.launching.PROGRAM_ARGUMENTS" value="server=mail.cs.uni-magdeburg.de:40006;server=ra.iws.cs.uni-magdeburg.de:40006;pattern=kanaweb|cimail15|intelligentfinance  /tmp/spam"/>
 <stringAttribute key="org.eclipse.jdt.launching.PROJECT_ATTR" value="jelmilter"/>
 </launchConfiguration>

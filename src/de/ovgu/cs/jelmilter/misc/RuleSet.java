@@ -105,6 +105,7 @@ public class RuleSet {
 		return rule == null ? EnumSet.noneOf(Source.class) : rule.getSources();
 	}
 	
+	@SuppressWarnings("unused")
 	private void parseMessage(XMLStreamReader in) throws XMLStreamException {
 		String tmp = in.getAttributeValue(null, "reply");
 		reply = -1;

@@ -170,7 +170,6 @@ public class Rule {
 		return found;
 	}
 
-	@SuppressWarnings("null")
 	private boolean header(List<Header> headers) {
 		if (headers == null || headers.size() == 0) {
 			return false;

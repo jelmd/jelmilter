@@ -249,7 +249,8 @@ public class MboxReader {
 	private void dumpObject(File dir, String prefix, int count, Object o,
 		ContentType contentType, List<URI> uriList) 
 	{
-		log.info(ContentTypeMatcher.normalize(contentType));
+		log.info("Dumping message " + count + " - "
+			+ ContentType.normalize(contentType));
 		if (o instanceof String) {
 			String s = o.toString();
 			dump(new File(dir, prefix + ".txt"), 
