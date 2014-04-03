@@ -27,42 +27,71 @@
 		<service_fmri value='svc:/system/system-log' />
 	</dependency>
 
-	<instance name='default' enabled='true'>
-		<!--
-		Sendmail is hard-coded to sleep for 60 seconds if it cannot determine
-		the FQHN, so the timeout for start must be longer than that.  For
-		details, see http://www.sendmail.org/vendor/sun/differences.html#3.2
-		-->
-		<exec_method name='start' type='method' timeout_seconds='60'
-			exec='/lib/svc/method/milter4j start' />
+	<!--
+	Sendmail is hard-coded to sleep for 60 seconds if it cannot determine
+	the FQHN, so the timeout for start must be longer than that.  For
+	details, see http://www.sendmail.org/vendor/sun/differences.html#3.2
+	-->
+	<exec_method name='start' type='method' timeout_seconds='60'
+		exec='/lib/svc/method/milter4j start'>
+		<method_context><method_credential user='smmsp' group='mail' /></method_context>
+	</exec_method>
 
-		<exec_method name='stop' type='method' timeout_seconds='60'
-			exec='/lib/svc/method/milter4j stop %{restarter/contract}' />
+	<exec_method name='stop' type='method' timeout_seconds='60'
+		exec='/lib/svc/method/milter4j stop %{restarter/contract}' >
+		<method_context><method_credential user='smmsp' group='mail' /></method_context>
+	</exec_method>
 
-		<property_group name='general' type='framework'>
-			<propval name='action_authorization' type='astring'
-				value='solaris.smf.manage.sendmail' />
-		</property_group>
+	<property_group name='startd' type='framework'>
+		<propval name='ignore_error' type='astring' value='core,signal' />
+	</property_group>
 
+	<property_group name='general' type='framework'>
+		<propval name='action_authorization' type='astring'
+			value='solaris.smf.manage.sendmail' />
+	</property_group>
+
+	<property_group name='config' type='application'>
+		<propval name='file' type='astring' value='' />
+		<propval name='log' type='astring' value='/var/log/milter4j/std.log' />
+		<propval name='value_authorization' type='astring'
+			value='solaris.smf.value.sendmail' />
+	</property_group>
+
+	<instance name='default' enabled='false'>
 		<property_group name='config' type='application'>
 			<propval name='file' type='astring' value='/etc/mail/milter.conf' />
-			<propval name='log' type='astring' value='/var/log/milter4j/std.log' />
-			<propval name='value_authorization' type='astring'
-				value='solaris.smf.value.sendmail' />
 		</property_group>
-
-		<template>
-			<common_name>
-				<loctext xml:lang='C'>
-				jelmilter - a milter4j mail filter daemon
-				</loctext>
-			</common_name>
-		</template>
-
 	</instance>
 
-	<stability value='Unstable' />
+	<stability value='Evolving' />
+	<template>
+		<common_name>
+			<loctext xml:lang='C'>
+jelmilter - a milter4j mail filter daemon
+			</loctext>
+		</common_name>
+		<pg_pattern name='config' type='application' required='true' target='this'>
+			<prop_pattern name='file' type='astring' required='true'>
+				<description>
+					<loctext xml:lang='C'>
+The configuration file to be used by jelmilter.
+					</loctext>
+				</description>
+				<visibility value='readwrite'/>
+				<cardinality min='1' max='1'/>
+			</prop_pattern>
+			<prop_pattern name='log' type='astring' required='false'>
+				<description>
+					<loctext xml:lang='C'>
+The file, where the output from the jelmilter daemon should be stored.
+					</loctext>
+				</description>
+				<visibility value='readwrite'/>
+				<cardinality min='1' max='1'/>
+			</prop_pattern>
+		</pg_pattern>
+	</template>
 
 </service>
-
 </service_bundle>

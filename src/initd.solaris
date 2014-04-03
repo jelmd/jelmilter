@@ -52,6 +52,8 @@ function checkConfig {
 	getSvcProp config/log LOG
 	[[ -z ${CFG} ]] && CFG="${DEFAULT_CFG}"
 	[[ -z ${LOG} ]] && LOG="${DEFAULT_LOG}"
+	typeset X="${SMF_FMRI##*:}"
+	[[ -n ${.sh.match} && $X != 'default' ]] && LOG+="$X"
 	if [[ ! -r ${CFG} ]]; then
 		print -u2 "Config file '${CFG}' is not readable"
 		exit ${SMF_EXIT_ERR_CONFIG}
@@ -83,8 +85,15 @@ install)
 	fi
 	BD="${LD%/*}"
 	cp -p "${LD}/s11-manifest.xml" "${_MANIFEST}"
-	if [[ -x ${BD}/bin/milter4j ]]; then
-		sed -e "/BASEDIR=/ s,=.*,='${BD}'," "${FPRG}" >"${_METHOD}"
+	if [[ ${BD} != ${BASEDIR} && -x ${BD}/bin/milter4j ]]; then
+		GSED=${ whence gsed ; }
+		[[ -z ${GSED} && -x /usr/bin/gnu/sed ]] && GSED=/usr/bin/gnu/sed
+		if [[ -z ${GSED} ]]; then
+			print -u2 'GNU sed not found - exiting'
+			exit 3
+		fi
+		print -u2 "Using install directory '${BD}' ..."
+		sed -e "/^BASEDIR=/ s,=.*,='${BD}'," "${FPRG}" >"${_METHOD}"
 		chmod 755 "${_METHOD}"
 	else
 		print -u2 "Using install directory '${BASEDIR}' ..."
