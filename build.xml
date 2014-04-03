@@ -1,5 +1,6 @@
 <!-- $Id$ -->
 <project name="jelmilter" default="dist"  basedir=".">
+	<property name="build.sysclasspath" value="ignore"/>
 	
 	<property name="codebase"   value="de/ovgu/cs/jelmilter"/>
 	<property name="product.name" value="JEL Mail Filter"/>
@@ -310,8 +311,11 @@
 		<copy file="${src.dir}/run.sh" tofile="${dist.dir}/bin/milter4j">
 			<filterset refid="main"/>
 		</copy>
-		<copy file="${src.dir}/initd.script" todir="${dist.dir}/docs"/>
-		<chmod file="${dist.dir}/bin/${ant.project.name}" perm="755"/>
+		<copy file="${src.dir}/initd.script" todir="${dist.dir}/lib"/>
+		<copy file="${src.dir}/initd.solaris" todir="${dist.dir}/lib"/>
+		<copy file="${src.dir}/s11-manifest.xml" todir="${dist.dir}/lib"/>
+		<chmod file="${dist.dir}/lib/initd.solaris" perm="755"/>
+		<chmod file="${dist.dir}/bin/milter4j" perm="755"/>
 	</target>
 	<target name="cp.lics">
 		<copy file="${license.file}" tofile="${dist.dir}/docs/LICENSE.txt" />

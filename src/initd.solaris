@@ -1,0 +1,107 @@
+#!/bin/ksh93
+
+# $Id: milter4j 82 2007-11-21 18:16:22Z elkner $
+#
+_MANIFEST='/lib/svc/manifest/network/smtp-milter4j.xml'
+_METHOD='/lib/svc/method/milter4j'
+FPRG=${.sh.file}
+
+function Usage {
+	typeset USAGE='[-?$Id$ ]
+[-copyright?Copyright (c) 2007-2014 Jens Elkner. All rights reserved.]
+[-license?Proprietary!]
+[+NAME?milter4j SMF - Solaris 11 SMF method script.]
+[+DESCRIPTION?This script can be used as a Solaris 11 SMF method script to
+start and stop the jelmilter daemon. Using the operand \binstall\b the script
+installs the SMF manifest \b'"${_MANIFEST}"'\b and this script as \b'"${_METHOD}"'\b to be used by the service. It also invokes \bsvcadm\b to restart the manifest-import service, so that the service is known, when the script got finished. Similar with \buninstall\b as operand, the script disables the service, removes the mentioned files and restarts the manifest-import again, to inform the system, that the service should be removed. Using \bstart\b or \bstop\b as operand, the script tries to start or stop the service given by \b$SMF_FMRI\b.]
+\n\nstart|stop|install|uninstall
+'
+	getopts -a "${FPRG##*/}" "${ print ${USAGE} ; }" OPT --man
+}
+
+BASEDIR='/opt/milter4j'
+DEFAULT_LOG='/var/log/milter4j/std.log'
+DEFAULT_CFG='/etc/mail/milter.conf'
+
+# Get a single value property.
+# $1 .. Name of the property to lookup
+# $2 .. vName, where to store the unescaped value
+# $3 .. Optional: SMF_FMRI to use (default: ${SMF_FMRI})
+# return: 0 .. non-empty value found; 1 .. prop does not exist or is empty
+#         2 .. missing FMRI           3 .. usage error
+function getSvcProp {
+	if [[ -z $1 || -z $2 ]]; then
+		print -u2 "getSvcProp() requires 2 arguments"
+		return 3
+	fi
+	typeset -n VAL=$2
+	typeset FMRI=$3
+	if [[ -z ${FMRI} ]]; then
+		[[ -n ${SMF_FMRI} ]] && FMRI=${SMF_FMRI} || { VAL='' ; return 2 ; }
+	fi
+	VAL="${ svcprop -p $1 ${FMRI} 2>/dev/null ; }"
+	[[ ${VAL} == '""' ]] && { VAL='' ; return 1 ; }
+	# unescape
+	VAL="${VAL//\\(['"''`';&()|^<>'\n''\t''\'\047])/\1}"	# \047 .. squote
+	return 0
+}
+
+CFG='' LOG=''
+function checkConfig {
+	getSvcProp config/file CFG
+	getSvcProp config/log LOG
+	[[ -z ${CFG} ]] && CFG="${DEFAULT_CFG}"
+	[[ -z ${LOG} ]] && LOG="${DEFAULT_LOG}"
+	if [[ ! -r ${CFG} ]]; then
+		print -u2 "Config file '${CFG}' is not readable"
+		exit ${SMF_EXIT_ERR_CONFIG}
+	fi
+	if [[ ! -x ${BASEDIR}/milter4j/bin/milter4j ]]; then
+		print -u2 "'${BASEDIR}/milter4j/bin/milter4j' is not executable"
+		exit ${SMF_EXIT_ERR_FATAL}
+	fi
+}
+
+case "$1" in
+start)
+	checkConfig
+	${BASEDIR}/milter4j/bin/milter4j -c "${CFG}" > ${LOG} 2>&1 &
+	;;
+stop)
+	checkConfig
+	${BASEDIR}/milter4j/bin/milter4j -c "${CFG}" -k
+	;;
+install)
+	LD="${FPRG%/*}"
+	if [[ ! -f ${LD}/s11-manifest.xml ]]; then
+		print -u2 "Unable to find SMF manifest '${LD}/s11-manifest.xml' - exiting"
+		exit 1;
+	fi
+	if [[ ${FPRG} == ${_METHOD} ]]; then
+		print -u2 "Seems that '${FPRG}' is already installed. Uninstall before retrying again."
+		exit 2
+	fi
+	BD="${LD%/*}"
+	cp -p "${LD}/s11-manifest.xml" "${_MANIFEST}"
+	if [[ -x ${BD}/bin/milter4j ]]; then
+		sed -e "/BASEDIR=/ s,=.*,='${BD}'," "${FPRG}" >"${_METHOD}"
+		chmod 755 "${_METHOD}"
+	else
+		print -u2 "Using install directory '${BASEDIR}' ..."
+		cp "${FPRG}" "${_METHOD}"
+		chmod 755 "${_METHOD}"
+	fi
+	/usr/sbin/svcadm restart manifest-import
+	;;
+uninstall)
+	/usr/sbin/svcadm disable -s milter4j:default
+	rm -f "${_METHOD}" "${_MANIFEST}"
+	/usr/sbin/svcadm restart manifest-import
+	;;
+*)
+	Usage
+	exit 1
+	;;
+esac
+
+# vim: ts=4 sw=4 filetype=sh

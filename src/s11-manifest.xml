@@ -1,0 +1,68 @@
+<?xml version="1.0"?>
+<!DOCTYPE service_bundle SYSTEM "/usr/share/lib/xml/dtd/service_bundle.dtd.1">
+<service_bundle type='manifest' name='LNFmilter4j:milter4j'>
+<service name='network/smtp/milter4j' type='service' version='1'>
+
+	<dependency name='fs-local' grouping='require_all' restart_on='none'
+		type='service'>
+		<service_fmri value='svc:/system/filesystem/local' />
+	</dependency>
+	<dependency name='network-service' grouping='require_all' restart_on='none'
+	    type='service'>
+		<service_fmri value='svc:/network/service' />
+	</dependency>
+
+	<dependency name='name-services' grouping='require_all' restart_on='refresh'
+	    type='service'>
+		<service_fmri value='svc:/milestone/name-services' />
+	</dependency>
+
+	<dependency name='identity' grouping='optional_all' restart_on='refresh'
+	    type='service'>
+		<service_fmri value='svc:/system/identity:domain' />
+	</dependency>
+
+	<dependency name='system-log' grouping='optional_all' restart_on='none'
+	    type='service'>
+		<service_fmri value='svc:/system/system-log' />
+	</dependency>
+
+	<instance name='default' enabled='true'>
+		<!--
+		Sendmail is hard-coded to sleep for 60 seconds if it cannot determine
+		the FQHN, so the timeout for start must be longer than that.  For
+		details, see http://www.sendmail.org/vendor/sun/differences.html#3.2
+		-->
+		<exec_method name='start' type='method' timeout_seconds='60'
+			exec='/lib/svc/method/milter4j start' />
+
+		<exec_method name='stop' type='method' timeout_seconds='60'
+			exec='/lib/svc/method/milter4j stop %{restarter/contract}' />
+
+		<property_group name='general' type='framework'>
+			<propval name='action_authorization' type='astring'
+				value='solaris.smf.manage.sendmail' />
+		</property_group>
+
+		<property_group name='config' type='application'>
+			<propval name='file' type='astring' value='/etc/mail/milter.conf' />
+			<propval name='log' type='astring' value='/var/log/milter4j/std.log' />
+			<propval name='value_authorization' type='astring'
+				value='solaris.smf.value.sendmail' />
+		</property_group>
+
+		<template>
+			<common_name>
+				<loctext xml:lang='C'>
+				jelmilter - a milter4j mail filter daemon
+				</loctext>
+			</common_name>
+		</template>
+
+	</instance>
+
+	<stability value='Unstable' />
+
+</service>
+
+</service_bundle>

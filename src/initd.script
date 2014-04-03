@@ -1,4 +1,4 @@
-#!/sbin/sh
+#!/bin/ksh93
 
 # $Id: milter4j 82 2007-11-21 18:16:22Z elkner $
 #
@@ -9,20 +9,21 @@
 
 BASEDIR=/opt
 LOGDIR=/var/log/milter4j
+CFG=/etc/mail/milter.conf
 
 case "$1" in
-'start')
-	[ -f /etc/mail/milter.conf ] && [ -f ${BASEDIR}/milter4j/bin/milter4j ] || exit 0
-	${BASEDIR}/milter4j/bin/milter4j > $LOGDIR/std.log 2>&1 &
+start)
+	[[ -f ${CFG} -f ${BASEDIR}/milter4j/bin/milter4j ]] || exit 0
+	${BASEDIR}/milter4j/bin/milter4j > ${LOGDIR}/std.log 2>&1 &
 	;;
-
-'stop')
-	[ -f /etc/mail/milter.conf ] && [ -f ${BASEDIR}/milter4j/bin/milter4j ] || exit 0
-	${BASEDIR}/milter4j/bin/milter4j shutdown
+stop)
+	[[ -f ${CFG} -f ${BASEDIR}/milter4j/bin/milter4j ]] || exit 0
+	${BASEDIR}/milter4j/bin/milter4j -k
 	;;
-
 *)
-	echo "Usage: $0 { start | stop }"
+	print -u2 "Usage: $0 { start | stop }"
 	exit 1
 	;;
 esac
+
+# vim: ts=4 sw=4 filetype=sh
