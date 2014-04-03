@@ -101,6 +101,8 @@ install)
 		chmod 755 "${_METHOD}"
 	fi
 	/usr/sbin/svcadm restart manifest-import
+	[[ ! -d ${DEFAULT_LOG%/*} ]] && mkdir -p ${DEFAULT_LOG%/*}
+	chown smmsp ${DEFAULT_LOG%/*} && chmod u+rwx ${DEFAULT_LOG%/*}
 	;;
 uninstall)
 	/usr/sbin/svcadm disable -s milter4j:default
