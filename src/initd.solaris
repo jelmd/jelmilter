@@ -23,6 +23,8 @@ BASEDIR='/opt/milter4j'
 DEFAULT_LOG='/var/log/milter4j/std.log'
 DEFAULT_CFG='/etc/mail/milter.conf'
 
+MILTER4J="${BASEDIR}/bin/milter4j"
+
 # Get a single value property.
 # $1 .. Name of the property to lookup
 # $2 .. vName, where to store the unescaped value
@@ -58,8 +60,8 @@ function checkConfig {
 		print -u2 "Config file '${CFG}' is not readable"
 		exit ${SMF_EXIT_ERR_CONFIG}
 	fi
-	if [[ ! -x ${BASEDIR}/milter4j/bin/milter4j ]]; then
-		print -u2 "'${BASEDIR}/milter4j/bin/milter4j' is not executable"
+	if [[ ! -x ${MILTER4J} ]]; then
+		print -u2 "'${MILTER4J}' is not executable"
 		exit ${SMF_EXIT_ERR_FATAL}
 	fi
 }
@@ -67,11 +69,11 @@ function checkConfig {
 case "$1" in
 start)
 	checkConfig
-	${BASEDIR}/milter4j/bin/milter4j -c "${CFG}" > ${LOG} 2>&1 &
+	${MILTER4J} -c "${CFG}" > ${LOG} 2>&1 &
 	;;
 stop)
 	checkConfig
-	${BASEDIR}/milter4j/bin/milter4j -c "${CFG}" -k
+	${MILTER4J} -c "${CFG}" -k
 	;;
 install)
 	LD="${FPRG%/*}"

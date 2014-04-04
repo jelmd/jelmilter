@@ -42,6 +42,7 @@ export LC_CTYPE=de_DE.UTF-8
 PRG=${.sh.file}
 progname=${PRG##*/}
 BASE_DIR=${PRG%/*}
+BASE_DIR=${PRG%/*}
 
 USAGE='[-?$Id$ ]
 [-copyright?Copyright (c) 2007-2014 Jens Elkner. All rights reserved.]
