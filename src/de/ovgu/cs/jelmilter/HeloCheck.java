@@ -398,9 +398,8 @@ public class HeloCheck
 					if (mx.equals(aname)) {
 						log.debug("MX '{}' matched '{}'", aname, hname);
 						return true;
-					} else {
-						log.debug("MX '{}' no match for '{}'", mx, aname);
 					}
+					log.debug("MX '{}' no match for '{}'", mx, aname);
 				}
 			} else {
 				log.debug("No MX for '{}' matched '{}'", hname, aname);

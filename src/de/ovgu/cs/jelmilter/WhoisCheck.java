@@ -64,6 +64,7 @@ public class WhoisCheck
 	private String name;
 	private Pattern[] patterns;
 	private HashSet<String> rcptWhitelist;
+	private HashSet<String> fromWhitelist;
 	private long[] timeoutMap;
 	/* as long as it is false, the filter tries to connect a [fallback]server
 	 * 'til a serverTimeout has been reached or a servers in the list have been 
@@ -96,9 +97,11 @@ public class WhoisCheck
 	 * 		spam hosts
 	 * @param rcptWL	an optional set of recipient addresses, for whome this
 	 * 	filter should be ignored.
+	 * @param fromWL	an optional set of from addresses, for whome this
+	 * 	filter should be ignored.
 	 */
 	public WhoisCheck(InetSocketAddress[] addr, Pattern[] patterns, 
-		HashSet<String> rcptWL) 
+		HashSet<String> rcptWL, HashSet<String> fromWL) 
 	{
 		if (addr == null) {
 			throw new IllegalArgumentException("Invalid address/port");
@@ -107,6 +110,7 @@ public class WhoisCheck
 		this.addr = addr;
 		this.patterns = patterns;
 		this.rcptWhitelist = rcptWL;
+		this.fromWhitelist = fromWL;
 		timeoutMap = new long[addr.length];
 		stopWaiting = false;
 	}
@@ -132,7 +136,7 @@ public class WhoisCheck
 	 */
 	@Override
 	public MailFilter getInstance() {
-		return new WhoisCheck(addr, patterns, rcptWhitelist);
+		return new WhoisCheck(addr, patterns, rcptWhitelist, fromWhitelist);
 	}
 
 	/**
@@ -159,6 +163,13 @@ public class WhoisCheck
 	 */
 	public static String P_SKIP4 = "skip4=";
 	
+	/** The prefix to use to specifiy a comma separated list of sender addresses,
+	 *  for which this filter should skipped, i.e. do nothing. See macro 
+	 *  "{mail_addr}". If an address starts with ^ a startsWith() check is made,
+	 *  if an address starts with $, a endsWith() match gets made, otherwise an 
+	 *  equals() check is made.
+	 */
+	public static String P_SKIPFROM = "skipFrom=";
 	/**
 	 * The prefix to use to specify the max. size of a mail, which should be 
 	 * scanned. I.e. if a mail is greater than the given amount, this filter 
@@ -185,7 +196,8 @@ public class WhoisCheck
 		String[] args = params.split(";");
 		ArrayList<InetSocketAddress> ia = new ArrayList<InetSocketAddress>();
 		ArrayList<Pattern> pl = new ArrayList<Pattern>();
-		HashSet<String> skipList = new HashSet<String>();
+		HashSet<String> skipToList = new HashSet<String>();
+		HashSet<String> skipFromList = new HashSet<String>();
 		for (int i=0; i < args.length; i++) {
 			String param = args[i].trim();
 			if (param.isEmpty()) {
@@ -232,14 +244,22 @@ public class WhoisCheck
 				for (int k=tmp.length-1; k >= 0; k--) {
 					String rcpt = tmp[k].trim();
 					if (rcpt.length() != 0) {
-						skipList.add(rcpt);
+						skipToList.add(rcpt);
+					}
+				}
+			} else if (param.startsWith(P_SKIPFROM)) {
+				String[] tmp = param.substring(P_SKIPFROM.length()).split(",");
+				for (int k=tmp.length-1; k >= 0; k--) {
+					String rcpt = tmp[k].trim();
+					if (rcpt.length() != 0) {
+						skipFromList.add(rcpt);
 					}
 				}
 			} else if (param.startsWith(P_MAXSIZE)) {
 				String tmp = param.substring(P_MAXSIZE.length()).trim();
 				try {
 					int s = Integer.parseInt(tmp, 10);
-				   	maxSize = s < 0 ? -1 : maxSize;
+					maxSize = s < 0 ? -1 : maxSize;
 				} catch (Exception e) {
 					warnParam(P_MAXSIZE, tmp);
 				}
@@ -253,7 +273,8 @@ public class WhoisCheck
 			log.warn(msg);
 			return false;
 		}
-		rcptWhitelist = skipList.isEmpty() ? null : skipList;
+		rcptWhitelist = skipToList.isEmpty() ? null : skipToList;
+		fromWhitelist = skipFromList.isEmpty() ? null : skipFromList;
 		patterns = pl.toArray(new Pattern[pl.size()]);
 		addr = ia.toArray(new InetSocketAddress[ia.size()]);
 		timeoutMap = new long[ia.size()];
@@ -277,6 +298,9 @@ public class WhoisCheck
 		 EnumSet<Type> of = EnumSet.of(Type.BODY, Type.BODYEOB);
 		 if (rcptWhitelist != null) {
 			 of.add(Type.RCPT);
+		 }
+		 if (fromWhitelist != null) {
+			 of.add(Type.MAIL);
 		 }
 		 return of;
 	}
@@ -514,6 +538,39 @@ public class WhoisCheck
 	private static ReplyPacket createReplyMaleformedMsg() {
 		return new ReplyPacket(554, "5.7.1", 
 			"Invalid message format - strict RFC compliance required");
+	}
+
+	/**
+	 * {@inheritDoc}
+	 */
+	@Override
+	public Packet doMailFrom(String[] from, HashMap<String, String> macros) {
+		if (fromWhitelist == null ||
+			from[0].length() < 3 || from[0].charAt(0) != '<')
+		{
+			return null;
+		}
+		boolean accept = false;
+		for (String s : fromWhitelist) {
+			char c = s.charAt(0);
+			if (c == '^') {
+				accept = from[0].startsWith(s.substring(1), 1);
+			} else if (c == '$') {
+				accept = from[0].substring(1, from[0].length() -1)
+					.endsWith(s.substring(1));
+			} else {
+				accept = from[0].substring(1, from[0].length() -1)
+					.equals(s.substring(1));
+			}
+			if (accept){
+				if (log.isInfoEnabled()) {
+					log.info(getLogInfo(macros) + "from whitelist '" + s + '\'');
+				}
+				stopWaiting = true;
+				return new AcceptPacket(false);
+			}
+		}
+		return null;
 	}
 
 	/**

@@ -17,10 +17,16 @@ ip=$cidr,...
 fqhn=$domain,...
   whitelist alle clients, deren $fqhn auf eine der angegebenen $domain endet
 skip4=recipient,...
-  whitelist wenn ein recipient mit einem in der angegebenen liste uübereinstimmt 
+  whitelist wenn ein recipient mit einem in der angegebenen liste übereinstimmt
+skipFrom=[^|$]sender,...
+  whitelist wenn die e-mail Adresse des Mail-Absenders case-sensitiv matcht.  
+  Wenn sender mit ^ beginnt, wird die MAIL FROM: addresse per startsWith(sender)
+  gecheckt. Wenn sender mit $ beginnt, wird sie per endsWith(sender) gecheckt,
+  ansonsten auf Gleichheit getestet.
 
 Regeln bzgl. EHLO argument:
 ==============================
+-2) falls sender match in skipFrom liste, OK.
 -1) falls rcpt in skip4=..., OK.
 0) falls in helo=... whitelist, OK
 1) falls $fqhn ~ "^(\[|IPv6:)" : Fix reverse DNS for clientFQHN
