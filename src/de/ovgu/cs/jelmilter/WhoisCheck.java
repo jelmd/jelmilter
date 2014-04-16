@@ -421,7 +421,7 @@ public class WhoisCheck
 						ch.configureBlocking(true);
 						ch.connect(addr[i]);
 					} catch (Exception e) {
-						log.warn(e.getLocalizedMessage());
+						log.warn(e.getLocalizedMessage() + " (" + addr[i] + ')');
 						if (log.isDebugEnabled()) {
 							log.debug("getChannel", e);
 						}

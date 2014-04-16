@@ -334,7 +334,7 @@
 	<target name="dist" depends="clean,jars,api,cp.lics,cp.run.sh">
 		<copy file="${src.dir}/logback.xml" todir="${dist.dir}/lib"/>
 		<copy todir="${dist.dir}/lib">
-			<fileset dir="${build.lib.dir}" includes="**/*.jar"/>
+			<fileset dir="${build.lib.dir}" includes="**/*${product.version}.jar"/>
 		</copy>
 		<copy todir="${dist.dir}/lib" preservelastmodified="true">
 			<fileset dir="${lib.dir}">

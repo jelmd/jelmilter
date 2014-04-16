@@ -374,7 +374,10 @@ public class HeloCheck
 		if (family == AddressFamily.INET || family == AddressFamily.INET6) {
 			try {
 				clientAddress = InetAddress.getByName(info);
-				log.debug("{}: client addr = {}", name, clientAddress.toString());
+				if (log.isDebugEnabled()) {
+					log.debug("{}: client addr = {}", hostname,
+						clientAddress.toString());
+				}
 			} catch (UnknownHostException e) {
 				// ignore;
 			}
@@ -385,17 +388,22 @@ public class HeloCheck
 	private static boolean domainIsMX(String domain, InetAddress addr) {
 		// allow, that the EHLO name is an MX for the given client address
 		try {
-			String aname = addr.getHostName();
+			String hname = addr.getHostName();
 			Record[] res = 
-				new Lookup(aname, org.xbill.DNS.Type.MX).run();
-			aname = domain + ".";
+				new Lookup(hname, org.xbill.DNS.Type.MX).run();
+			String aname = domain + ".";
 			if (res != null && res.length > 0) {
 				for (int i=res.length-1; i >= 0; i--) {
 					String mx = ((MXRecord) res[i]).getTarget().toString();
 					if (mx.equals(aname)) {
+						log.debug("MX '{}' matched '{}'", aname, hname);
 						return true;
+					} else {
+						log.debug("MX '{}' no match for '{}'", mx, aname);
 					}
 				}
+			} else {
+				log.debug("No MX for '{}' matched '{}'", hname, aname);
 			}
 		} catch (Exception e) {
 			// ignore
@@ -435,6 +443,7 @@ public class HeloCheck
 		}
 		if (clientFQHN.startsWith("[") || clientFQHN.startsWith("IPv6:")) {
 			// client IP address is required to resolve into a FQHN
+			log.debug("client IP not resolvable to FQHN");
 			reply = new ReplyPacket(554, "5.7.1", "Fix reverse DNS for " 
 				+ clientFQHN);
 			if (delayCheck) {
@@ -459,6 +468,7 @@ public class HeloCheck
 			for (int i=a.length-1; i >= 0; i--) {
 				String addr = a[i].getHostAddress();
 				if (domain.equals(addr)) {
+					log.debug("Raw address '{}' not allowed", addr);
 					a = null;
 					break;
 				}
@@ -553,6 +563,7 @@ public class HeloCheck
 	 */
 	public static void main(String[] args) throws UnknownHostException {
 		if (args.length < 3) {
+			usage(System.err);
 			System.exit(1);
 		}
 		HeloCheck h = new HeloCheck(args[0]);
@@ -560,9 +571,10 @@ public class HeloCheck
 		HashMap<String,String> macros = new HashMap<String,String>(0);
 		h.doConnect(addr.getCanonicalHostName(), AddressFamily.INET, 61739, 
 			args[1], macros);
-		log.info("doHelo result: " + h.doHelo(args[2].toString(), macros));
+		System.out.println("doHelo result: "
+			+ h.doHelo(args[2].toString(), macros));
 		if (h.delayCheck) {
-			log.info("" + h.doRecipientTo(null, macros));
+			System.out.println("" + h.doRecipientTo(null, macros));
 		}
 	}
 	

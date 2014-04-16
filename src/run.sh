@@ -121,6 +121,12 @@ if (( IS_START_STOP )); then
 		typeset -n FLAGS=STOP_JVM_FLAGS
 		ARGS+=( 'shutdown' )
 	fi
+else
+	for ((I=${#START_JVM_FLAGS}-1; I >= 0; I-- )); do
+		if [[ ${START_JVM_FLAGS[I]} =~ port= ]]; then
+			START_JVM_FLAGS[I]='-esa'
+		fi
+	done
 fi
 
 if [[ ! -d ${BASE_DIR}/lib ]]; then
