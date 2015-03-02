@@ -314,6 +314,8 @@
 		<copy file="${src.dir}/initd.script" todir="${dist.dir}/lib"/>
 		<copy file="${src.dir}/initd.solaris" todir="${dist.dir}/lib"/>
 		<copy file="${src.dir}/s11-manifest.xml" todir="${dist.dir}/lib"/>
+		<copy file="${src.dir}/logback-stderr.xml"
+			tofile="${dist.dir}/lib/test/logback-test.xml"/>
 		<chmod file="${dist.dir}/lib/initd.solaris" perm="755"/>
 		<chmod file="${dist.dir}/bin/milter4j" perm="755"/>
 	</target>

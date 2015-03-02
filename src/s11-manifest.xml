@@ -53,7 +53,7 @@
 
 	<property_group name='config' type='application'>
 		<propval name='file' type='astring' value='' />
-		<propval name='log' type='astring' value='/var/log/milter4j/std.log' />
+		<propval name='log' type='astring' value='/var/share/milter/milter4j.out' />
 		<propval name='value_authorization' type='astring'
 			value='solaris.smf.value.sendmail' />
 	</property_group>
@@ -84,7 +84,7 @@ The configuration file to be used by jelmilter.
 			<prop_pattern name='log' type='astring' required='false'>
 				<description>
 					<loctext xml:lang='C'>
-The file, where the output from the jelmilter daemon should be stored.
+The file, where the output from the JVM excuting the jelmilter daemon should be stored.
 					</loctext>
 				</description>
 				<visibility value='readwrite'/>

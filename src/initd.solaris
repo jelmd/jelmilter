@@ -20,7 +20,7 @@ installs the SMF manifest \b'"${_MANIFEST}"'\b and this script as \b'"${_METHOD}
 }
 
 BASEDIR='/opt/milter4j'
-DEFAULT_LOG='/var/log/milter4j/std.log'
+DEFAULT_LOG='/var/share/milter/milter4j.out'
 DEFAULT_CFG='/etc/mail/milter.conf'
 
 MILTER4J="${BASEDIR}/bin/milter4j"

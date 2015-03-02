@@ -545,22 +545,23 @@ public class WhoisCheck
 	 */
 	@Override
 	public Packet doMailFrom(String[] from, HashMap<String, String> macros) {
-		if (fromWhitelist == null ||
-			from[0].length() < 3 || from[0].charAt(0) != '<')
-		{
+		if (fromWhitelist == null) {
 			return null;
 		}
+		/* We do not use from[0], since it may contain angel brackets or not.
+		 * {mail_addr} contains the normalized address, which gets supplied by
+		 * sendmail via doMacro() right before doMailFrom() gets called.
+		 */
+		String addr = macros.get("{mail_addr}");
 		boolean accept = false;
 		for (String s : fromWhitelist) {
 			char c = s.charAt(0);
 			if (c == '^') {
-				accept = from[0].startsWith(s.substring(1), 1);
+				accept = addr.startsWith(s.substring(1));
 			} else if (c == '$') {
-				accept = from[0].substring(1, from[0].length() -1)
-					.endsWith(s.substring(1));
+				accept = addr.endsWith(s.substring(1));
 			} else {
-				accept = from[0].substring(1, from[0].length() -1)
-					.equals(s.substring(1));
+				accept = addr.equals(s);
 			}
 			if (accept){
 				if (log.isInfoEnabled()) {

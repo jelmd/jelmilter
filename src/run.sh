@@ -48,7 +48,7 @@ USAGE='[-?$Id$ ]
 [-copyright?Copyright (c) 2007-2014 Jens Elkner. All rights reserved.]
 [-license?Proprietary!]
 [+NAME?'"${progname}"' - script to start/stop jelmilter]
-[+DESCRIPTION?This script starts per default the jelmilter daemon. If any other of the options below is given, jelmilter just executes the given operation and exits.]
+[+DESCRIPTION?This script starts per default the jelmilter daemon. If any other of the options below is given, jelmilter just executes the given operation using by default the log configuration in '"${BASE_DIR}"'/lib/test/ if available (e.g. logback-test.xml) and exits.]
 [h:help?Print this help and exit.]
 [c:config]:[file?The jelmilter daemon configuration file to use. Default: \b/etc/mail/milter.conf\b.]
 [e:helo?Do a HELO check and exit. Without any \aoperand\a a help message gets printed explaining possible operands and formats.]
@@ -135,7 +135,7 @@ if [[ ! -d ${BASE_DIR}/lib ]]; then
 fi
 
 # add in the dependency .jar files
-X=''
+(( IS_START_STOP )) && X='' || X=":${BASE_DIR}/lib/test"
 for F in ~(N)${BASE_DIR}/lib/*.jar ${BASE_DIR}/lib ; do
 	X+=":$F"
 done
