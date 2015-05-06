@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--  $Id: logback-test.xml 691 2011-07-10 20:42:48Z elkner $ -->
+<configuration>
+<appender name="stderr" class="ch.qos.logback.core.ConsoleAppender">
+	<layout class="ch.qos.logback.classic.PatternLayout">
+		<pattern>%date{HH:mm:ss.SSS} %level [%thread, %file:%line] - %message%n</pattern>
+	</layout>
+	<encoding>UTF-8</encoding>
+	<Target>System.err</Target>
+</appender>
+
+<root>
+	<level value="INFO" />
+	<appender-ref ref="stderr" />
+</root>
+
+<logger name="de.ovgu.cs.jelmilter"><level value="DEBUG"/></logger>
+</configuration>

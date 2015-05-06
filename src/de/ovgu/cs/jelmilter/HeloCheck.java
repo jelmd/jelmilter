@@ -499,8 +499,9 @@ public class HeloCheck
 					}
 					if (!match && !domainIsMX(domain, clientAddress)) {
 						reply = new ReplyPacket(554, "5.7.1", 
-							"MTA is not " + domain 
-							+ " - fix reverse DNS/MTA configuration");
+							"Connected MTA is not what it pretends to be ("
+							+ domain + ") - contact your admin to "
+							+ "fix reverse DNS/MTA configuration");
 						if (delayCheck) {
 							return null;
 						}
