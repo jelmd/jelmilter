@@ -129,6 +129,7 @@ public class Rule {
 			for (int i=from.length-1; i >= 0; i--) {
 				if (from[i].indexOf(find) != -1) {
 					found = true;
+					log.debug("From \"{}\" found", from[i]);
 					break;
 				}
 			}
@@ -138,6 +139,7 @@ public class Rule {
 				m.reset(from[i]);
 				if (m.find()) {
 					found = true;
+					log.debug("From \"{}\" matched", m.group());
 					break;
 				}
 			}
@@ -170,6 +172,7 @@ public class Rule {
 		return found;
 	}
 
+	@SuppressWarnings("null")	/* find == null implies matcher != null per contract */
 	private boolean header(List<Header> headers) {
 		if (headers == null || headers.size() == 0) {
 			return false;
@@ -195,12 +198,14 @@ public class Rule {
 			if (find != null) {
 				if (val.indexOf(find) != -1) {
 					found = true;
+					log.debug("From \"{}\" found", val);
 					break;
 				}
 			} else {
 				matcher.reset(val);
 				if (matcher.find()) {
 					found = true;
+					log.debug("From \"{}\" matched", matcher.group());
 					break;
 				}
 			}
