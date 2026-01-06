@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- an example regex mail filter config, which gets included at the end of regex.conf -->
+<regex id="common">
+	<rule id="pass through" onmatch="accept" force="true">
+		<or>
+			<find src="body" type="text/plain">@pass@through@</find>
+		</or>
+	</rule>
+	<rule id="empty mime-part" onmatch="reject">
+		<msg reply="554" status="5.7.1">We do not accept spam - add some text</msg>
+		<or>
+			<match type="text/plain" src="body">^$</match>
+		</or>
+	</rule>
+	<rule id="Nebenverdienst" onmatch="reject">
+		<msg reply="554" status="5.7.1">We do not accept spam</msg>
+		<or>
+			<find src="header" name="Subject">Gibraltar </find>
+			<match src="body">@(firsteuro-consulting|worldofconsult)</match>
+			<and id="hotmailBat">
+				<find src="header" name="X-Mailer">The Bat!</find>
+				<find src="body">@hotmail.com</find>
+			</and>
+			<match src="body" id="Autos">multinationaler AutohÃ¤ndler|RoyMannEL@gmail\.com</match>
+			<find src="body">mail.kz</find>
+			<and id="2lines">
+				<match src="body">@(?:[a-z]+-group\.com|europs-consult\.com)</match>
+				<match src="body">Zusatzeinkommen|Attorney</match>
+			</and>
+			<!-- der XML Streamreader parsed den Kram nicht als plain text -->
+			<match src="body" type="text/plain">Testeink&amp;auml;ufer|Verdienstm&amp;ouml;glichkeit</match>
+			<match src="body" type="text/html">@(stepstonede|arbeitsagentura)\.com</match>
+		</or>
+	</rule>
+	<rule id="money xfer" onmatch="reject">
+		<msg reply="554" status="5.7.1">We do not accept spam</msg>
+		<or>
+			<match src="body">(?i)Bank of Nigeria|foreign funds investigation|loans to [iI]ndividual or [cC]ompanies</match>
+			<and>
+				<find src="body">amount of money transfer:</find>
+				<find src="body">document attached</find>
+				<find src="body">Western Union</find>
+			</and>
+			<match src="body">CEO OF YUKOS OIL AND BANK|KHODORKOVSKY</match>
+			<find src="body" type="text/html">casino.ru</find>
+		</or>
+	</rule>
+	<rule id="sex" onmatch="reject">
+		<msg reply="554" status="5.7.1">We do not accept spam</msg>
+		<or>
+			<match src="body">(Love is Strong|You're the One) http://</match>
+			<match src="body">My name is Elena|beautiful nude|girl from Russia|ksushechkaspb@</match>
+		</or>
+	</rule>
+	<rule id="email address" onmatch="reject">
+		<msg reply="554" status="5.7.1">We do not accept spam</msg>
+		<or>
+			<find src="header" name="From">inmail.at</find>
+			<find src="header" name="Received">inmail24.com</find>
+			<match src="body">sb-garant@mail\.ru|@zakmedia\.ru</match>
+		</or>
+	</rule>
+	<rule id="tuerkenkram" onmatch="reject">
+		<msg reply="554" status="5.7.1">We do not accept spam</msg>
+		<or>
+			<find src="header" name="From">mobilturkiye</find>
+		</or>
+	</rule>
+	<rule id="court notice" onmatch="reject">
+		<msg reply="554" status="5.7.1">We do not accept this kind of spam</msg>
+		<and>
+			<find src="body">copy of the court notice</find>
+			<match src="body">Clerk (?:to the|of) Court</match>
+		</and>
+	</rule>
+</regex>
