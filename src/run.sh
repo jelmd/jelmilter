@@ -1,5 +1,6 @@
 #!/bin/ksh93
 
+# Just a fallback if 'java' cannot be found.
 JAVA_HOME=${JAVA_HOME:-/opt/jdk}
 [[ ! -e ${JAVA_HOME} ]] && JAVA_HOME=/usr/jdk
 
@@ -10,20 +11,30 @@ JVM_FLAGS=( '-Djava.awt.headless=true' )
 START_JVM_FLAGS=(
 	"${JVM_FLAGS[@]}"
 
-	# enable JMX tools to get info about the server and its stats from remote
+	# Enable JMX to retrieve server information and statistics on demand
+	#	JMX clients connect to this TCP port to access the RMI registry
 	'-Dcom.sun.management.jmxremote.port=12345'
-
-	# if one has no firewalls, dedicated connection machines one would probably
-	# inverse these settings
+	#	TCP port used for JMX RMI client connections. If not set, a random
+    #	port is selected as needed, which can be difficult to handle properly
+    #	with firewalls.
+	#'-Dcom.sun.management.jmxremote.rmi.port=12346'
+	#	Force JMX clients to use this IP or hostname/FQDN
+	#'-Djava.rmi.server.hostname=127.0.0.1'
+	#	If a firewall is in place which allows only trusted clients within the
+	#	local network to connect, no authentication and no traffic encryption is
+	#	probably ok. If in doubts, inverse these settings.
 	'-Dcom.sun.management.jmxremote.authenticate=false'
 	'-Dcom.sun.management.jmxremote.ssl=false'
+	#	No dynamic class loading from remote codebases (security best practice).
+	'-Djava.rmi.server.useCodebaseOnly=true'
+	#	For additional options, consult the JMX documentation or ask ChatGPT.
 
 	# other flags
 	'-server'
 	'-Xmx256m'
 	#'-XX:+HeapDumpOnOutOfMemoryError'
 	
-	# just in case, somebody wants to attach a debugger from remote
+	# Just in case someone wants to attach a remote debugger:
 	#'-agentlib:jdwp=transport=dt_socket,address=45678,server=y,suspend=n'
 )
 
@@ -80,10 +91,10 @@ function showUsage {
 integer IS_START_STOP=1
 
 typeset -n FLAGS=START_JVM_FLAGS
-CFG=''
+CFG=
 
 while getopts "${USAGE}" option ; do
-	case "$option" in
+	case "${option}" in
 		h) showUsage ; exit 0 ;;
 		c) CFG="${OPARG}" ;;
 		r) START_CLASS=de.ovgu.cs.jelmilter.RegexCheck
@@ -107,7 +118,7 @@ while getopts "${USAGE}" option ; do
 		v) START_CLASS=de.ovgu.cs.jelmilter.Version
 			IS_START_STOP=0
 			;;
-		L) JVM_FLAGS+=( "-Dlogback.config-file=$OPTARG" ) ;;
+		L) JVM_FLAGS+=( "-Dlogback.config-file=${OPTARG}" ) ;;
 	esac
 done	
 X=$((OPTIND-1))
