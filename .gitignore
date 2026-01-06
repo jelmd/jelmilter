@@ -1,0 +1,53 @@
+build/
+dist/
+.*.swp
+*.tmp
+*.bak
+*~
+*.rej
+*.orig
+.nfs*
+*.DS_Store
+.vscode
+
+##############################
+## Java
+##############################
+.mtj.tmp/
+*.class
+hs_err_pid*
+
+##############################
+## IntelliJ
+##############################
+out/
+.idea/
+.idea_modules/
+*.iml
+*.ipr
+*.iws
+
+##############################
+## Eclipse
+##############################
+.settings/
+bin/
+tmp/
+.metadata
+#.classpath
+#.project
+*~.nib
+local.properties
+.loadpath
+.factorypath
+
+##############################
+## NetBeans
+##############################
+nbproject/private/
+build/
+nbbuild/
+dist/
+nbdist/
+nbactions.xml
+nb-configuration.xml
