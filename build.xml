@@ -89,7 +89,7 @@
 		<fileset dir="${lib.dir}">
 			<patternset refid="libs"/>
 		</fileset>
-		<fileset dir="${java.home}/../lib" includes="jconsole.jar"/>
+		<fileset dir="${java.home}/../lib" includes="jconsole.jar" erroronmissingdir="false"/>
 	</path>
 	<path id="junit.classpath">
 		<fileset dir="${lib.dir}">
@@ -165,8 +165,9 @@
 			optimize="${optimize}" debug="${debug}" debuglevel="${debuglevel}" 
 			deprecation="${deprecation}" classpathref="classpath.extensions"
 			encoding="${compile.encoding}"
+			source="1.8" target="1.8"
 			listfiles="${listfiles}">
-			<compilerarg value="-Xlint:unchecked" compiler="javac1.5" />
+			<compilerarg value="-Xlint:unchecked" compiler="javac1.8" />
 		</javac>
 	</target>
 
@@ -177,6 +178,7 @@
 			optimize="${optimize}" debug="${debug}" debuglevel="${debuglevel}"
 			deprecation="${deprecation}" classpathref="classpath.extensions"
 			encoding="${compile.encoding}" listfiles="false"
+			source="1.8" target="1.8"
 			includeantruntime="false"
 		>
 		</javac>
@@ -189,6 +191,7 @@
 			optimize="${optimize}" debug="${debug}" debuglevel="${debuglevel}"
 			deprecation="${deprecation}" classpathref="junit.classpath"
 			encoding="${compile.encoding}" listfiles="false"
+			source="1.8" target="1.8"
 			includeantruntime="false"
 		>
 		</javac>
