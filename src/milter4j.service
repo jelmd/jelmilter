@@ -1,0 +1,15 @@
+[Unit]
+Description=Sendmail Mail Filter 4 Java
+Before=sendmail.service
+
+[Service]
+Type=simple
+Environment='CFG=/etc/milter4j.conf'
+EnvironmentFile=-/etc/default/milter4j
+User=smmsp
+ExecStart=/opt/milter4j/bin/milter4j -c ${CFG}
+ExecStop=/opt/milter4j/bin/milter4j -c ${CFG} -k
+StandardOutput=syslog
+
+[Install]
+WantedBy=sendmail.service
