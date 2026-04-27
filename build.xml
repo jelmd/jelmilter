@@ -38,9 +38,9 @@
 	<!-- vendor specific stuff -->
 	<property name="vendor.name" value="Jens Elkner" />
 	<property name="vendor.address"
-		value="Jens Elkner, FIN-IWS, Universitaetsplatz 2, 39106 Magdeburg, Sachsen-Anhalt, Germany" />
-	<property name="vendor.email" value="jel+milter@iws.cs.uni-magdeburg.de" />
-	<property name="vendor.url" value="http://iws.cs.uni-magdeburg.de/~elkner/" />
+		value="Jens Elkner, FIN-IKS, Universitaetsplatz 2, 39106 Magdeburg, Sachsen-Anhalt, Germany" />
+	<property name="vendor.email" value="jel+milter@iks.cs.uni-magdeburg.de" />
+	<property name="vendor.url" value="http://github.com/jelmd/jelmilter/" />
 	<property name="license.file"
 		value="${src.dir}/${codebase}/res/license.txt" />
 
@@ -118,11 +118,10 @@
 		<tstamp>
 			<format property="year.end" pattern="yyyy" />
 		</tstamp>
-		<exec executable="svnversion" output="${build.dir}/buildnumber">
-			<arg line="-n ${basedir}"/>
+		<exec executable="git" output="${build.dir}/buildnumber">
+			<arg line="rev-parse --short HEAD"/>
 			<redirector>
 				<outputfilterchain>
-					<replaceregex pattern="^.*:" replace=""/>
 					<replaceregex pattern="^" replace="build.number="/>
 				</outputfilterchain>
 			</redirector>

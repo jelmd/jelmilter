@@ -1,0 +1,71 @@
+name: Build and Release
+
+# generate_release_notes requires write access
+permissions:
+  contents: write
+
+on:
+  push:
+    tags:
+      - "v*"
+
+  workflow_dispatch:
+    inputs:
+      mode:
+        # use 'test' to run everything except 'Create GitHub Release' and
+        #  'release' to run everything except 'Upload artifact' to generate a
+        # "pseudo" release for investigation.
+        description: "test | release"
+        required: true
+        default: "test"
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+
+    steps:
+      - name: Checkout Repo
+        uses: actions/checkout@v4
+
+      - name: Install Java + Ant
+        run: sudo apt-get update && sudo apt-get install -y openjdk-8-jdk ant ksh
+
+      - name: Build distro
+        run: JAVA_HOME=/usr/lib/jvm/java-8-openjdk-amd64 ant
+
+      - name: Extract/Check version
+        id: version
+        run: |
+          VERS=$(dist/bin/milter4j -v | awk '/^JEL/ { print $4 }')
+          echo "VERS=${VERS}" >> $GITHUB_OUTPUT
+          echo "ARCHIVE=jelmilter-${VERS}.tar.gz" >> $GITHUB_OUTPUT
+
+          TAG=${GITHUB_REF#refs/tags/v}
+          if [[ "${TAG}" != "v${VERS}" ]]; then
+              echo "### WARNING: Tag-Version-Mismatch (${TAG} != ${VERS}) ###"
+          fi
+
+      - name: Create the archive
+        run: |
+          mv dist jelmilter-${{ steps.version.outputs.VERS }}
+          tar -czf ${{ steps.version.outputs.ARCHIVE }} jelmilter-${{ steps.version.outputs.VERS }}
+
+      - name: Upload artifact
+        if: ${{ github.event.inputs.mode == 'test' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: jelmilter-build
+          path: ${{ steps.version.outputs.ARCHIVE }}
+
+      - name: Create GitHub Release
+        if: startsWith(github.ref, 'refs/tags/') || inputs.mode == 'release'
+        uses: softprops/action-gh-release@v2
+        with:
+          # if not triggered via 'v$VERSION' event we need to supply a tag name
+          tag_name: ${{ github.ref_name || '0.0.1-test' }}
+          files: ${{ steps.version.outputs.ARCHIVE }}
+          # prefer to check via guthub and manually release
+          draft: true
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
