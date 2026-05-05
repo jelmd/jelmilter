@@ -30,12 +30,12 @@ import java.util.Map.Entry;
 import java.util.TreeMap;
 import java.util.TreeSet;
 
-import javax.mail.BodyPart;
-import javax.mail.MessagingException;
-import javax.mail.internet.ContentType;
-import javax.mail.internet.MimeMessage;
-import javax.mail.internet.MimeMultipart;
-import javax.mail.util.SharedByteArrayInputStream;
+import jakarta.mail.BodyPart;
+import jakarta.mail.MessagingException;
+import jakarta.mail.internet.ContentType;
+import jakarta.mail.internet.MimeMessage;
+import jakarta.mail.internet.MimeMultipart;
+import jakarta.mail.util.SharedByteArrayInputStream;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

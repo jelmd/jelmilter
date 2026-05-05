@@ -29,12 +29,12 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import javax.mail.BodyPart;
-import javax.mail.Header;
-import javax.mail.MessagingException;
-import javax.mail.internet.ContentType;
-import javax.mail.internet.MimeMessage;
-import javax.mail.internet.MimeMultipart;
+import jakarta.mail.BodyPart;
+import jakarta.mail.Header;
+import jakarta.mail.MessagingException;
+import jakarta.mail.internet.ContentType;
+import jakarta.mail.internet.MimeMessage;
+import jakarta.mail.internet.MimeMultipart;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

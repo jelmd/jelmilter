@@ -15,8 +15,8 @@ import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.List;
 
-import javax.mail.Header;
-import javax.mail.MessagingException;
+import jakarta.mail.Header;
+import jakarta.mail.MessagingException;
 import javax.xml.stream.XMLStreamConstants;
 import javax.xml.stream.XMLStreamException;
 import javax.xml.stream.XMLStreamReader;

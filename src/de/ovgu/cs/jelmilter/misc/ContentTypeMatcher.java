@@ -14,9 +14,9 @@ import java.nio.charset.Charset;
 import java.util.Enumeration;
 import java.util.Locale;
 
-import javax.mail.internet.ContentType;
-import javax.mail.internet.ParameterList;
-import javax.mail.internet.ParseException;
+import jakarta.mail.internet.ContentType;
+import jakarta.mail.internet.ParameterList;
+import jakarta.mail.internet.ParseException;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
